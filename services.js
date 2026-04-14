@@ -67,6 +67,50 @@ const AuthService = {
 };
 
 // ---- MERCADO LIBRE API -----------------------
+// Auto-renew token when it expires
+const MLTokenManager = {
+    _expiresAt: null,
+
+    isExpired: () => {
+        if (!MLTokenManager._expiresAt) return true;
+        return Date.now() >= MLTokenManager._expiresAt;
+    },
+
+    refresh: async () => {
+        if (!CONFIG.ML_CLIENT_ID || !CONFIG.ML_CLIENT_SECRET) return false;
+        try {
+            // Usamos un proxy público de CORS para la renovación desde el browser
+            const res = await fetch('https://api.mercadolibre.com/oauth/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `grant_type=client_credentials&client_id=${CONFIG.ML_CLIENT_ID}&client_secret=${CONFIG.ML_CLIENT_SECRET}`
+            });
+            if (!res.ok) return false;
+            const data = await res.json();
+            if (data.access_token) {
+                CONFIG.ML_ACCESS_TOKEN = data.access_token;
+                MLTokenManager._expiresAt = Date.now() + (data.expires_in - 300) * 1000; // 5min antes
+                console.log('[ML Token] Renovado correctamente, expira en', data.expires_in / 3600, 'horas');
+                return true;
+            }
+        } catch (err) {
+            console.warn('[ML Token] No se pudo renovar:', err.message);
+        }
+        return false;
+    },
+
+    ensureValid: async () => {
+        if (MLTokenManager.isExpired()) {
+            await MLTokenManager.refresh();
+        }
+    }
+};
+
+// Pre-marcar token actual como válido por 6hrs desde ahora
+if (CONFIG.ML_ACCESS_TOKEN) {
+    MLTokenManager._expiresAt = Date.now() + 6 * 60 * 60 * 1000;
+}
+
 const MLService = {
     BASE_URL: `https://api.mercadolibre.com/sites/${CONFIG.ML_SITE_ID}`,
 
@@ -77,6 +121,7 @@ const MLService = {
     },
 
     search: async (query, limit = 20) => {
+        await MLTokenManager.ensureValid();
         try {
             const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}&category=MLM1246`;
             const res = await fetch(url, { headers: MLService._headers() });
@@ -94,6 +139,7 @@ const MLService = {
     },
 
     searchGeneral: async (query, limit = 20) => {
+        await MLTokenManager.ensureValid();
         try {
             const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
             const res = await fetch(url, { headers: MLService._headers() });

@@ -18,9 +18,11 @@ const CONFIG = {
 
     // --- MERCADO LIBRE ---
     // access_token que obtuviste con client_credentials:
-    ML_ACCESS_TOKEN: '',  // <-- pega aquí el token (expira en 6hrs, renovar)
+    ML_ACCESS_TOKEN: 'APP_USR-3207441237450946-041419-aecf139c2ba8bd740d3509fb1ac78b76-376188817',
+    ML_CLIENT_ID: '3207441237450946',
+    ML_CLIENT_SECRET: 'vZtmvA8gaiQtwupw3ftM2XblUQ7kXfAv',
     ML_SITE_ID: 'MLM',   // MLM = México
-
+    
     // --- APP ---
     APP_NAME: 'Market2U',
     APP_VERSION: '2.0.0',

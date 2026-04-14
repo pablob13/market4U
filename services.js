@@ -70,25 +70,39 @@ const AuthService = {
 const MLService = {
     BASE_URL: `https://api.mercadolibre.com/sites/${CONFIG.ML_SITE_ID}`,
 
+    _headers: () => {
+        const h = { 'Content-Type': 'application/json' };
+        if (CONFIG.ML_ACCESS_TOKEN) h['Authorization'] = `Bearer ${CONFIG.ML_ACCESS_TOKEN}`;
+        return h;
+    },
+
     search: async (query, limit = 20) => {
         try {
             const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}&category=MLM1246`;
-            // MLM1246 = Alimentos y Bebidas en MX (para enfocarnos en supermercado)
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('API error');
+            const res = await fetch(url, { headers: MLService._headers() });
+            if (res.status === 403) {
+                console.warn('[ML API] Se requiere access_token. Ve a developers.mercadolibre.com para obtenerlo.');
+                return null;
+            }
+            if (!res.ok) throw new Error('API error ' + res.status);
             const data = await res.json();
             return MLService.parseResults(data.results || []);
         } catch (err) {
             console.error('[ML API] Error:', err);
-            return null; // null = fallar silenciosamente, usar datos mock
+            return null;
         }
     },
 
     searchGeneral: async (query, limit = 20) => {
         try {
             const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('API error');
+            const res = await fetch(url, { headers: MLService._headers() });
+            if (res.status === 403) {
+                console.warn('[ML API] Se requiere access_token en config.js > ML_ACCESS_TOKEN.');
+                if (window.showToast) showToast('Configura tu token de Mercado Libre en config.js', 'info', 5000);
+                return null;
+            }
+            if (!res.ok) throw new Error('API error ' + res.status);
             const data = await res.json();
             return MLService.parseResults(data.results || []);
         } catch (err) {

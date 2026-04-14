@@ -24,5 +24,5 @@ const CONFIG = {
     // --- APP ---
     APP_NAME: 'Market2U',
     APP_VERSION: '2.0.0',
-    IS_PRODUCTION: false,
+    IS_PRODUCTION: true,
 };

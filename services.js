@@ -139,18 +139,31 @@ const MLService = {
     },
 
     searchGeneral: async (query, limit = 20) => {
-        await MLTokenManager.ensureValid();
         try {
-            const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-            const res = await fetch(url, { headers: MLService._headers() });
+            // En producción: usar proxy serverless para evitar bloqueo CORS/IP
+            // En local (archivo://): llamar directo con token
+            const isLocal = window.location.protocol === 'file:';
+            let url;
+            if (isLocal) {
+                await MLTokenManager.ensureValid();
+                url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+            } else {
+                // Proxy Vercel (sin exponer credenciales, sin bloqueo de IP)
+                url = `/api/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+            }
+
+            const fetchOpts = isLocal ? { headers: MLService._headers() } : {};
+            const res = await fetch(url, fetchOpts);
+
             if (res.status === 403) {
-                console.warn('[ML API] Se requiere access_token en config.js > ML_ACCESS_TOKEN.');
-                if (window.showToast) showToast('Configura tu token de Mercado Libre en config.js', 'info', 5000);
+                console.warn('[ML API] 403 - token inválido o bloqueado');
+                if (window.showToast) showToast('Problema con la API de Mercado Libre', 'warning', 4000);
                 return null;
             }
             if (!res.ok) throw new Error('API error ' + res.status);
             const data = await res.json();
-            return MLService.parseResults(data.results || []);
+            const items = data.results || [];
+            return MLService.parseResults(items);
         } catch (err) {
             console.error('[ML API] Error:', err);
             return null;

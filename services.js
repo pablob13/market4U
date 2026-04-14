@@ -1,0 +1,207 @@
+// =============================================
+// Market2U — Capa de Servicios Backend
+// =============================================
+// Maneja: Supabase Auth, DB queries, y API de Mercado Libre
+// =============================================
+
+// ---- SUPABASE CLIENT -------------------------
+let supabase = null;
+
+const initSupabase = () => {
+    if (typeof window.supabase === 'undefined') {
+        console.warn('[Market2U] Supabase SDK no cargado. Usando modo localStorage.');
+        return null;
+    }
+    if (!CONFIG.SUPABASE_URL.includes('supabase.co')) {
+        console.warn('[Market2U] Supabase no configurado. Completa config.js con tus credenciales.');
+        return null;
+    }
+    supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    console.log('[Market2U] Supabase conectado ✓');
+    return supabase;
+};
+
+// ---- AUTH ------------------------------------
+const AuthService = {
+    isReady: () => supabase !== null,
+
+    signUp: async (email, password, name) => {
+        if (!supabase) return { error: 'Supabase no configurado' };
+        const { data, error } = await supabase.auth.signUp({
+            email, password,
+            options: { data: { name } }
+        });
+        return { data, error };
+    },
+
+    signIn: async (email, password) => {
+        if (!supabase) return { error: 'Supabase no configurado' };
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        return { data, error };
+    },
+
+    signInWithGoogle: async () => {
+        if (!supabase) return { error: 'Supabase no configurado' };
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.origin }
+        });
+        return { data, error };
+    },
+
+    signOut: async () => {
+        if (!supabase) return;
+        await supabase.auth.signOut();
+    },
+
+    getSession: async () => {
+        if (!supabase) return null;
+        const { data: { session } } = await supabase.auth.getSession();
+        return session;
+    },
+
+    onAuthChange: (callback) => {
+        if (!supabase) return;
+        supabase.auth.onAuthStateChange((_event, session) => callback(session));
+    }
+};
+
+// ---- MERCADO LIBRE API -----------------------
+const MLService = {
+    BASE_URL: `https://api.mercadolibre.com/sites/${CONFIG.ML_SITE_ID}`,
+
+    search: async (query, limit = 20) => {
+        try {
+            const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}&category=MLM1246`;
+            // MLM1246 = Alimentos y Bebidas en MX (para enfocarnos en supermercado)
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('API error');
+            const data = await res.json();
+            return MLService.parseResults(data.results || []);
+        } catch (err) {
+            console.error('[ML API] Error:', err);
+            return null; // null = fallar silenciosamente, usar datos mock
+        }
+    },
+
+    searchGeneral: async (query, limit = 20) => {
+        try {
+            const url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('API error');
+            const data = await res.json();
+            return MLService.parseResults(data.results || []);
+        } catch (err) {
+            console.error('[ML API] Error:', err);
+            return null;
+        }
+    },
+
+    getItem: async (itemId) => {
+        try {
+            const res = await fetch(`https://api.mercadolibre.com/items/${itemId}`);
+            if (!res.ok) throw new Error('Not found');
+            return await res.json();
+        } catch (err) {
+            return null;
+        }
+    },
+
+    parseResults: (results) => {
+        return results.map(item => ({
+            id: `ml_${item.id}`,
+            ml_id: item.id,
+            title: item.title,
+            category: item.category_id || 'General',
+            image: item.thumbnail?.replace('-I.jpg', '-O.jpg'), // mejor calidad
+            description: item.seller?.nickname ? `Vendedor: ${item.seller.nickname}` : '',
+            brand: item.attributes?.find(a => a.id === 'BRAND')?.value_name || '',
+            offers: [{
+                store: 'mercadolibre',
+                price: item.price,
+                shipping: item.shipping?.free_shipping ? 0 : 49,
+                delivery: item.shipping?.free_shipping ? 'Envío gratis' : '3-5 días',
+                url: item.permalink
+            }],
+            source: 'mercadolibre',
+            permalink: item.permalink
+        }));
+    },
+};
+
+// ---- LISTS SERVICE ---------------------------
+const ListsService = {
+    save: async (userId, name, items) => {
+        if (!supabase || !userId) {
+            // Fallback a localStorage
+            return null;
+        }
+        const { data, error } = await supabase
+            .from('saved_lists')
+            .insert({ user_id: userId, name, items });
+        return { data, error };
+    },
+
+    getAll: async (userId) => {
+        if (!supabase || !userId) return null;
+        const { data, error } = await supabase
+            .from('saved_lists')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+        return { data, error };
+    },
+
+    delete: async (listId) => {
+        if (!supabase) return null;
+        const { error } = await supabase
+            .from('saved_lists')
+            .delete()
+            .eq('id', listId);
+        return { error };
+    }
+};
+
+// ---- ADDRESSES SERVICE -----------------------
+const AddressService = {
+    getAll: async (userId) => {
+        if (!supabase || !userId) return null;
+        const { data, error } = await supabase
+            .from('addresses')
+            .select('*')
+            .eq('user_id', userId)
+            .order('is_default', { ascending: false });
+        return { data, error };
+    },
+
+    add: async (userId, address) => {
+        if (!supabase || !userId) return null;
+        const { data, error } = await supabase
+            .from('addresses')
+            .insert({ user_id: userId, ...address });
+        return { data, error };
+    },
+
+    setDefault: async (userId, addressId) => {
+        if (!supabase) return null;
+        await supabase.from('addresses')
+            .update({ is_default: false })
+            .eq('user_id', userId);
+        const { error } = await supabase.from('addresses')
+            .update({ is_default: true })
+            .eq('id', addressId);
+        return { error };
+    },
+
+    delete: async (addressId) => {
+        if (!supabase) return null;
+        const { error } = await supabase
+            .from('addresses')
+            .delete()
+            .eq('id', addressId);
+        return { error };
+    }
+};
+
+// Inicializar Supabase cuando cargue el script
+initSupabase();

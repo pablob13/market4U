@@ -1,0 +1,26 @@
+{
+  "name": "Market2U - Comparador de Supermercados",
+  "short_name": "Market2U",
+  "description": "Compara precios entre supermercados y encuentra las mejores ofertas",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#22c55e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/22c55e/ffffff?text=M2U",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/22c55e/ffffff?text=M2U",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["shopping", "utilities"],
+  "lang": "es"
+}

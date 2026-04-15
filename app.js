@@ -1,4 +1,7 @@
 // Usamos variables globales desde mockData.js ya que estamos corriendo sin servidor
+console.log('%c✅ Market2U app.js v2 cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
+console.log('MLService disponible:', typeof MLService !== 'undefined');
+console.log('CONFIG.ML_SEARCH_URL:', typeof CONFIG !== 'undefined' ? CONFIG.ML_SEARCH_URL : 'CONFIG no definido');
 
 // DOM Elements
 const resultsGrid = document.getElementById('resultsGrid');
@@ -23,7 +26,6 @@ const userNavControl = document.getElementById('userNavControl');
 const openLoginBtn = document.getElementById('openLoginBtn');
 const loginModal = document.getElementById('loginModal');
 const closeLoginModal = document.getElementById('closeLoginModal');
-const simulateLoginBtn = document.getElementById('simulateLoginBtn');
 
 const profileModal = document.getElementById('profileModal');
 const closeProfileModal = document.getElementById('closeProfileModal');
@@ -162,7 +164,12 @@ const formatCurrency = (value) => {
 // Process Data to find best pricing
 const processProducts = (productList) => {
     return productList.map(item => {
-        const sortedOffers = [...item.offers].sort((a, b) => (a.price + a.shipping) - (b.price + b.shipping));
+        // Manejar precio null (productos de ML sin buy_box)
+        const sortedOffers = [...item.offers].sort((a, b) => {
+            const totalA = (a.price ?? Infinity) + (a.shipping ?? 0);
+            const totalB = (b.price ?? Infinity) + (b.shipping ?? 0);
+            return totalA - totalB;
+        });
         const bestOffer = sortedOffers[0];
         return { ...item, bestOffer, sortedOffers };
     });
@@ -458,9 +465,18 @@ const renderProducts = (data) => {
                         <i data-lucide="bell" style="width: 16px;"></i>
                     </button>
                 </div>
-                <img src="${product.image}" alt="${product.title}">
-                <div class="best-price-badge">
-                    <i data-lucide="tag" style="width:12px; height:12px;"></i> Mejor Precio
+                ${product.image
+                    ? `<img src="${product.image}" alt="${product.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                       <div style="display:none; flex-direction:column; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg,#ffe600,#f5c500); color:#2d3277; font-weight:700; font-size:1.1rem; gap:4px;">
+                           <span style="font-size:2rem;">🛒</span><span>ML</span>
+                       </div>`
+                    : `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg,#ffe600,#f5c500); color:#2d3277; font-weight:700; font-size:1.1rem; gap:4px;">
+                           <span style="font-size:2rem;">🛒</span>
+                           <span style="font-size:0.8rem; opacity:0.8;">${product.title.split(' ').slice(0,3).join(' ')}</span>
+                       </div>`
+                }
+                <div class="best-price-badge" style="${product.source === 'mercadolibre' ? 'background:#ffe600; color:#2d3277;' : ''}">
+                    <i data-lucide="tag" style="width:12px; height:12px;"></i> ${product.source === 'mercadolibre' ? 'Mercado Libre' : 'Mejor Precio'}
                 </div>
             </div>
             
@@ -469,12 +485,18 @@ const renderProducts = (data) => {
                     <span class="product-category">${product.category}</span>
                     <h3 class="product-title">${product.title}</h3>
                     <div class="product-price-section">
-                        <span class="price-label">Desde</span>
+                        <span class="price-label">${product.displayBestOffer.price ? 'Desde' : ''}</span>
                         <div style="display:flex; align-items:center;">
-                            <span class="best-price">${formatCurrency(product.displayBestOffer.price)}</span>
-                            <div class="store-logo-small" style="background-color: ${bestStore.bgColor}; color: ${bestStore.color}">
-                                ${bestStore.logo}
-                            </div>
+                            ${product.displayBestOffer.price
+                                ? `<span class="best-price">${formatCurrency(product.displayBestOffer.price)}</span>
+                                   <div class="store-logo-small" style="background-color: ${bestStore.bgColor}; color: ${bestStore.color}">${bestStore.logo}</div>`
+                                : `<a href="${product.permalink || product.displayBestOffer.url || '#'}" target="_blank"
+                                      style="font-size:0.85rem; color:var(--accent-color); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:4px;"
+                                      onclick="event.stopPropagation()">
+                                      <div class="store-logo-small" style="background-color:${bestStore.bgColor}; color:${bestStore.color}">${bestStore.logo}</div>
+                                      Ver precio en ML &rarr;
+                                   </a>`
+                            }
                         </div>
                     </div>
                 </div>
@@ -621,6 +643,26 @@ const updateCartUI = () => {
 /* --- SAVED LISTS LOGIC --- */
 const saveListModal = document.getElementById('saveListModal');
 
+// Sincronizar listas desde Supabase al perfil local
+const syncListsFromSupabase = async () => {
+    if (!user?.id || !ListsService) return;
+    const { data, error } = await ListsService.getAll(user.id);
+    if (error || !data) return;
+    // Mergear: conservar listas con productos reales (locales y remote)
+    const remoteLists = data.map(row => ({
+        id: row.id,
+        name: row.name,
+        items: (row.items || []).map(i => {
+            const product = allData.find(p => p.id === i.product_id);
+            return product ? { product, quantity: i.quantity || 1 } : null;
+        }).filter(Boolean)
+    })).filter(l => l.items.length > 0);
+    if (remoteLists.length > 0) {
+        savedLists = remoteLists;
+        saveState();
+    }
+};
+
 document.getElementById('openSaveListPopupBtn').addEventListener('click', () => {
     if(!user) { loginModal.classList.add('active'); return; }
     if(cart.length === 0) { showToast('Tu carrito está vacío.', 'warning'); return; }
@@ -637,16 +679,23 @@ saveListModal.addEventListener('click', (e) => {
     if(e.target === saveListModal) saveListModal.classList.remove('active');
 });
 
-saveListBtn.addEventListener('click', () => {
+saveListBtn.addEventListener('click', async () => {
     if(cart.length === 0) return showToast('Tu carrito está vacío.', 'warning');
     const name = listNameInput.value.trim() || 'Mi Super Custom';
-    savedLists.push({ name, items: [...cart] });
+    const newList = { name, items: [...cart] };
+    savedLists.push(newList);
     
     listNameInput.value = '';
     saveListModal.classList.remove('active');
     cartModal.classList.remove('active');
     saveState();
-    showToast(`Lista "⁠${name}⁠" guardada correctamente`, 'success');
+    showToast(`Lista "${name}" guardada correctamente`, 'success');
+    
+    // Guardar en Supabase si hay sesión
+    if (user?.id && typeof ListsService !== 'undefined') {
+        const supabaseItems = cart.map(c => ({ product_id: c.product.id, quantity: c.quantity }));
+        await ListsService.save(user.id, name, supabaseItems);
+    }
     
     profileModal.classList.add('active');
     activeTab = 'listas';
@@ -977,31 +1026,148 @@ openCartBtn.addEventListener('click', () => { cartModal.classList.add('active');
 closeCartModal.addEventListener('click', () => cartModal.classList.remove('active'));
 cartModal.addEventListener('click', (e) => { if (e.target === cartModal) cartModal.classList.remove('active'); });
 
-// Login Listeners
-if(openLoginBtn) openLoginBtn.addEventListener('click', () => loginModal.classList.add('active'));
+// ======================================================
+// AUTH UI HELPERS
+// ======================================================
+window.switchAuthTab = (tab) => {
+    const isSignin = tab === 'signin';
+    document.getElementById('formSignin').style.display = isSignin ? 'block' : 'none';
+    document.getElementById('formSignup').style.display = isSignin ? 'none' : 'block';
+    const activeStyle = `background:var(--bg-primary); color:var(--text-primary); box-shadow:var(--shadow-sm)`;
+    const inactiveStyle = `background:transparent; color:var(--text-secondary); box-shadow:none`;
+    document.getElementById('tabSignin').style.cssText += isSignin ? activeStyle : inactiveStyle;
+    document.getElementById('tabSignup').style.cssText += isSignin ? inactiveStyle : activeStyle;
+};
+
+const setAuthLoading = (btnId, textId, spinnerId, loading) => {
+    document.getElementById(btnId).disabled = loading;
+    document.getElementById(textId).style.display = loading ? 'none' : 'inline';
+    document.getElementById(spinnerId).style.display = loading ? 'inline' : 'none';
+};
+
+const showAuthError = (divId, msg) => {
+    const el = document.getElementById(divId);
+    el.textContent = msg;
+    el.style.display = 'block';
+};
+
+const hideAuthErrors = () => {
+    ['signinError','signupError'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+};
+
+// ---- Login Listeners ----
+if(openLoginBtn) openLoginBtn.addEventListener('click', () => {
+    hideAuthErrors();
+    loginModal.classList.add('active');
+    lucide.createIcons();
+});
 closeLoginModal.addEventListener('click', () => loginModal.classList.remove('active'));
 loginModal.addEventListener('click', (e) => { if (e.target === loginModal) loginModal.classList.remove('active'); });
 
-simulateLoginBtn.addEventListener('click', () => {
-    user = { name: "Usuario" };
-    saveState();
-    loginModal.classList.remove('active');
-    renderUserNav();
+// Sign In
+document.getElementById('signinBtn').addEventListener('click', async () => {
+    hideAuthErrors();
+    const email = document.getElementById('signinEmail').value.trim();
+    const password = document.getElementById('signinPassword').value;
+    if (!email || !password) return showAuthError('signinError', 'Por favor ingresa tu correo y contraseña.');
+    
+    setAuthLoading('signinBtn', 'signinBtnText', 'signinBtnSpinner', true);
+    
+    if (AuthService.isReady()) {
+        const { data, error } = await AuthService.signIn(email, password);
+        setAuthLoading('signinBtn', 'signinBtnText', 'signinBtnSpinner', false);
+        if (error) {
+            const msg = error.message?.includes('Invalid') ? 'Correo o contraseña incorrectos.' : error.message;
+            return showAuthError('signinError', msg);
+        }
+        const session = data?.session;
+        if (session) {
+            user = { 
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.user_metadata?.name || session.user.email.split('@')[0]
+            };
+            saveState();
+            loginModal.classList.remove('active');
+            renderUserNav();
+            showToast(`¡Bienvenido, ${user.name}!`, 'success');
+            await syncListsFromSupabase();
+        }
+    } else {
+        // Fallback demo cuando Supabase no está disponible
+        setAuthLoading('signinBtn', 'signinBtnText', 'signinBtnSpinner', false);
+        user = { name: email.split('@')[0] };
+        saveState();
+        loginModal.classList.remove('active');
+        renderUserNav();
+        showToast('Modo demo activo (Supabase no conectado)', 'info');
+    }
 });
+
+// Sign Up
+document.getElementById('signupBtn').addEventListener('click', async () => {
+    hideAuthErrors();
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    if (!name || !email || !password) return showAuthError('signupError', 'Por favor completa todos los campos.');
+    if (password.length < 6) return showAuthError('signupError', 'La contraseña debe tener mínimo 6 caracteres.');
+    
+    setAuthLoading('signupBtn', 'signupBtnText', 'signupBtnSpinner', true);
+    
+    if (AuthService.isReady()) {
+        const { data, error } = await AuthService.signUp(email, password, name);
+        setAuthLoading('signupBtn', 'signupBtnText', 'signupBtnSpinner', false);
+        if (error) return showAuthError('signupError', error.message);
+
+        // Supabase puede requerir confirmación de email
+        if (data?.user && !data?.session) {
+            loginModal.classList.remove('active');
+            showToast('¡Cuenta creada! Revisa tu correo para confirmar.', 'info', 6000);
+        } else if (data?.session) {
+            user = {
+                id: data.session.user.id,
+                email: data.session.user.email,
+                name
+            };
+            saveState();
+            loginModal.classList.remove('active');
+            renderUserNav();
+            showToast(`¡Bienvenido a Market2U, ${name}!`, 'success');
+        }
+    } else {
+        setAuthLoading('signupBtn', 'signupBtnText', 'signupBtnSpinner', false);
+        user = { name };
+        saveState();
+        loginModal.classList.remove('active');
+        renderUserNav();
+        showToast('Modo demo: cuenta simulada creada', 'info');
+    }
+});
+
+// Google OAuth
+document.getElementById('googleSigninBtn').addEventListener('click', async () => {
+    if (!AuthService.isReady()) return showToast('Supabase no configurado para OAuth', 'warning');
+    const { error } = await AuthService.signInWithGoogle();
+    if (error) showToast(error.message || 'Error con Google', 'error');
+});
+
+// Profile / Logout
 closeProfileModal.addEventListener('click', () => profileModal.classList.remove('active'));
 profileModal.addEventListener('click', (e) => { if (e.target === profileModal) profileModal.classList.remove('active'); });
-logoutBtn.addEventListener('click', () => {
+logoutBtn.addEventListener('click', async () => {
+    if (AuthService.isReady()) await AuthService.signOut();
     user = null;
     favorites.clear();
     alerts = [];
     savedLists = [];
     cart = [];
     saveState();
-    
     profileModal.classList.remove('active');
     renderUserNav();
     updateCartUI();
     renderProducts(currentData);
+    showToast('Sesión cerrada correctamente', 'info');
 });
 
 tabBtns.forEach(btn => {
@@ -1015,11 +1181,12 @@ tabBtns.forEach(btn => {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        modalOverlay.classList.remove('active');
         cartModal.classList.remove('active');
         loginModal.classList.remove('active');
         profileModal.classList.remove('active');
         redirectModal.classList.remove('active');
+        alertModal.classList.remove('active');
+        addressModal.classList.remove('active');
     }
 });
 
@@ -1052,78 +1219,142 @@ searchInput.addEventListener('blur', () => {
     }
 });
 
-// --- Busqueda con ML API ---
-let mlSearchTimeout = null;
-let isSearchingML = false;
+// --- Búsqueda con ML API ---
+let mlSearchTimeout  = null;
+let isSearchingML    = false;
+let lastMLQuery      = '';   // evitar búsquedas repetidas con misma query
 
-const applyFilters = async () => {
-    const query = searchInput.value.toLowerCase().trim();
+// Utilidad: muestra / oculta el badge de carga ML
+const showMLBadge = (text, color = 'var(--accent-color)') => {
+    let el = document.getElementById('mlLoadingBadge');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'mlLoadingBadge';
+        el.style.cssText = [
+            'position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);',
+            'padding:0.5rem 1.4rem; border-radius:20px; font-size:0.85rem;',
+            'font-weight:600; z-index:9999; box-shadow:0 4px 20px rgba(0,0,0,.15);',
+            'transition:background 0.3s, opacity 0.3s; color:white;',
+        ].join('');
+        document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.background = color;
+    el.style.opacity = '1';
+};
+const hideMLBadge = (delay = 0) => {
+    const el = document.getElementById('mlLoadingBadge');
+    if (!el) return;
+    if (delay > 0) setTimeout(() => el.remove(), delay);
+    else el.remove();
+};
+
+// Núcleo: ejecuta la búsqueda en ML y fusiona los resultados
+const runMLSearch = async (query) => {
+    if (!query || query.length < 3) return;
+    if (typeof MLService === 'undefined') return;
+    if (isSearchingML) return;                 // evitar búsquedas paralelas
+    if (query === lastMLQuery) return;         // no re-buscar lo mismo
+
+    isSearchingML = true;
+    lastMLQuery   = query;
+    showMLBadge('⚡ Buscando en Mercado Libre...');
+
+    try {
+        const mlResults = await MLService.searchGeneral(query, 20);
+
+        if (!mlResults || mlResults.length === 0) {
+            hideMLBadge();
+            return;
+        }
+
+        // Limpiar resultados previos de ML de allData para evitar acumulación
+        allData = allData.filter(p => !p.id?.startsWith('ml_'));
+
+        const processedML = processProducts(mlResults);
+
+        // Calcular resultados locales actuales para deduplicar por título
+        const localQuery = query.toLowerCase();
+        const localItems = allData.filter(p =>
+            p.title.toLowerCase().includes(localQuery) ||
+            (p.category || '').toLowerCase().includes(localQuery)
+        );
+        const existingTitles = new Set(localItems.map(p => p.title.toLowerCase()));
+        const newFromML = processedML.filter(p => !existingTitles.has(p.title.toLowerCase()));
+
+        if (newFromML.length === 0) {
+            hideMLBadge();
+            return;
+        }
+
+        // Agregar a allData y reconstruir vista
+        allData = [...allData, ...newFromML];
+        currentData = [...localItems, ...newFromML];
+        renderProducts(currentData);
+
+        showMLBadge(`✓ ${newFromML.length} resultados de Mercado Libre`, '#10b981');
+        hideMLBadge(4000);
+
+    } catch (err) {
+        hideMLBadge();
+        // Token expirado → instrucción clara al usuario
+        if (err.message?.includes('401') || err.message?.includes('token')) {
+            showToast('Token ML expirado. Actualiza ML_ACCESS_TOKEN en Supabase.', 'warning');
+        } else {
+            console.warn('[ML]', err.message);
+        }
+    } finally {
+        isSearchingML = false;
+    }
+};
+
+const applyFilters = () => {
+    const query  = searchInput.value.toLowerCase().trim();
     const sortVal = sortSelect.value;
-    
-    // Filtrar datos locales (mock)
-    let filtered = allData.filter(p => p.title.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
-    
-    if (sortVal === 'price-asc') filtered.sort((a, b) => a.bestOffer.price - b.bestOffer.price);
-    else if (sortVal === 'savings') filtered.sort((a, b) => {
-        const spreadA = a.sortedOffers[a.sortedOffers.length - 1].price - a.bestOffer.price;
-        const spreadB = b.sortedOffers[b.sortedOffers.length - 1].price - b.bestOffer.price;
-        return spreadB - spreadA;
-    });
-    
+
+    // === Filtros locales ===
+    // Incluir TODOS los datos (locales y ML) en el cálculo base
+    let filtered = allData.filter(p =>
+        p.title.toLowerCase().includes(query) ||
+        (p.category || '').toLowerCase().includes(query)
+    );
+
+    if (sortVal === 'price-asc') {
+        filtered.sort((a, b) => (a.bestOffer?.price ?? Infinity) - (b.bestOffer?.price ?? Infinity));
+    } else if (sortVal === 'savings') {
+        filtered.sort((a, b) => {
+            const spreadA = (a.sortedOffers?.at(-1)?.price ?? 0) - (a.bestOffer?.price ?? 0);
+            const spreadB = (b.sortedOffers?.at(-1)?.price ?? 0) - (b.bestOffer?.price ?? 0);
+            return spreadB - spreadA;
+        });
+    }
+
     currentData = filtered;
     renderProducts(filtered);
-    
-    // Si la query tiene 3+ caracteres, buscar en ML API también
-    if (query.length >= 3 && typeof MLService !== 'undefined') {
+
+    // === Búsqueda ML con debounce ===
+    if (query.length >= 3) {
         clearTimeout(mlSearchTimeout);
-        mlSearchTimeout = setTimeout(async () => {
-            if (isSearchingML) return;
-            isSearchingML = true;
-            
-            // Mostrar indicador de carga
-            const loadingEl = document.createElement('div');
-            loadingEl.id = 'mlLoadingBadge';
-            loadingEl.style.cssText = 'position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:var(--accent-color); color:white; padding:0.5rem 1.25rem; border-radius:20px; font-size:0.85rem; font-weight:500; z-index:999; box-shadow:var(--shadow-lg);';
-            loadingEl.textContent = '⚡ Buscando en Mercado Libre...';
-            document.body.appendChild(loadingEl);
-            
-            try {
-                const mlResults = await MLService.searchGeneral(query, 16);
-                if (mlResults && mlResults.length > 0) {
-                    // Procesar resultados de ML para que funcionen con renderProducts
-                    const processedML = processProducts(mlResults);
-                    // Fusionar: locales primero, ML después (sin duplicados por título)
-                    const existingTitles = new Set(filtered.map(p => p.title.toLowerCase()));
-                    const newFromML = processedML.filter(p => !existingTitles.has(p.title.toLowerCase()));
-                    
-                    if (newFromML.length > 0) {
-                        currentData = [...filtered, ...newFromML];
-                        renderProducts(currentData);
-                        
-                        // Badge de ML badge en los nuevos resultados
-                        loadingEl.textContent = `✓ ${newFromML.length} productos encontrados en Mercado Libre`;
-                        loadingEl.style.background = '#10b981';
-                        setTimeout(() => loadingEl.remove(), 3000);
-                    } else {
-                        loadingEl.remove();
-                    }
-                } else {
-                    loadingEl.remove();
-                }
-            } catch (err) {
-                loadingEl.remove();
-            } finally {
-                isSearchingML = false;
-            }
-        }, 600); // Debounce 600ms
+        lastMLQuery = '';  // reset para permitir re-búsqueda al cambiar query
+        mlSearchTimeout = setTimeout(() => runMLSearch(query), 700);
+    } else {
+        hideMLBadge();
     }
 };
 
 searchInput.addEventListener('input', applyFilters);
 sortSelect.addEventListener('change', applyFilters);
 searchButton.addEventListener('click', () => {
+    clearTimeout(mlSearchTimeout);
+    isSearchingML = false;   // forzar re-búsqueda aunque haya una en curso
+    lastMLQuery   = '';      // forzar re-búsqueda aunque sea la misma query
+
     applyFilters();
-    document.getElementById('resultsTitle').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
+    
+    // Lanzar ML inmediatamente (sin debounce)
+    const query = searchInput.value.toLowerCase().trim();
+    if (query.length >= 3) runMLSearch(query);
 });
 
 /* --- MASSIVE MATRIX LOGIC --- */
@@ -1223,6 +1454,42 @@ renderProducts(currentData);
 renderUserNav();
 updateCartUI();
 renderNotifications();
+
+// Restaurar sesión de Supabase al recargar
+(async () => {
+    if (!AuthService.isReady()) return;
+    const session = await AuthService.getSession();
+    if (session?.user) {
+        user = {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0]
+        };
+        saveState();
+        renderUserNav();
+        await syncListsFromSupabase();
+        console.log('[Market2U] Sesión restaurada:', user.name);
+    }
+    // Escuchar cambios de sesión (ej. OAuth redirect)
+    AuthService.onAuthChange(async (session) => {
+        if (session?.user) {
+            user = {
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.user_metadata?.name || session.user.email.split('@')[0]
+            };
+            saveState();
+            renderUserNav();
+            loginModal.classList.remove('active');
+            showToast(`¡Bienvenido, ${user.name}!`, 'success');
+            await syncListsFromSupabase();
+        } else if (user) {
+            user = null;
+            saveState();
+            renderUserNav();
+        }
+    });
+})();
 
 // PWA - Service Worker Registration
 if ('serviceWorker' in navigator) {

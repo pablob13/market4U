@@ -5,7 +5,7 @@
 // =============================================
 
 // ---- SUPABASE CLIENT -------------------------
-let supabase = null;
+let _sb = null;
 
 const initSupabase = () => {
     if (typeof window.supabase === 'undefined') {
@@ -16,18 +16,18 @@ const initSupabase = () => {
         console.warn('[Market2U] Supabase no configurado. Completa config.js con tus credenciales.');
         return null;
     }
-    supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    _sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
     console.log('[Market2U] Supabase conectado ✓');
-    return supabase;
+    return _sb;
 };
 
 // ---- AUTH ------------------------------------
 const AuthService = {
-    isReady: () => supabase !== null,
+    isReady: () => _sb !== null,
 
     signUp: async (email, password, name) => {
-        if (!supabase) return { error: 'Supabase no configurado' };
-        const { data, error } = await supabase.auth.signUp({
+        if (!_sb) return { error: 'Supabase no configurado' };
+        const { data, error } = await _sb.auth.signUp({
             email, password,
             options: { data: { name } }
         });
@@ -35,14 +35,14 @@ const AuthService = {
     },
 
     signIn: async (email, password) => {
-        if (!supabase) return { error: 'Supabase no configurado' };
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!_sb) return { error: 'Supabase no configurado' };
+        const { data, error } = await _sb.auth.signInWithPassword({ email, password });
         return { data, error };
     },
 
     signInWithGoogle: async () => {
-        if (!supabase) return { error: 'Supabase no configurado' };
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        if (!_sb) return { error: 'Supabase no configurado' };
+        const { data, error } = await _sb.auth.signInWithOAuth({
             provider: 'google',
             options: { redirectTo: window.location.origin }
         });
@@ -50,19 +50,19 @@ const AuthService = {
     },
 
     signOut: async () => {
-        if (!supabase) return;
-        await supabase.auth.signOut();
+        if (!_sb) return;
+        await _sb.auth.signOut();
     },
 
     getSession: async () => {
-        if (!supabase) return null;
-        const { data: { session } } = await supabase.auth.getSession();
+        if (!_sb) return null;
+        const { data: { session } } = await _sb.auth.getSession();
         return session;
     },
 
     onAuthChange: (callback) => {
-        if (!supabase) return;
-        supabase.auth.onAuthStateChange((_event, session) => callback(session));
+        if (!_sb) return;
+        _sb.auth.onAuthStateChange((_event, session) => callback(session));
     }
 };
 
@@ -140,30 +140,66 @@ const MLService = {
 
     searchGeneral: async (query, limit = 20) => {
         try {
-            // Usar Supabase Edge Function (proxy seguro, sin bloqueo de IP)
-            const edgeUrl = `${CONFIG.ML_SEARCH_URL}?q=${encodeURIComponent(query)}&limit=${limit}`;
-            const headers = { 'Content-Type': 'application/json' };
-            // Si tenemos anon key, la incluimos (requerida por Supabase Edge Functions)
-            if (CONFIG.SUPABASE_ANON_KEY && CONFIG.SUPABASE_ANON_KEY !== 'TU_SUPABASE_ANON_KEY_AQUI') {
-                headers['Authorization'] = `Bearer ${CONFIG.SUPABASE_ANON_KEY}`;
-            }
-
-            const res = await fetch(edgeUrl, { headers });
+            // Buscamos directamente desde el navegador del usuario en México.
+            // Es CRUCIAL no enviar el header 'Authorization' para evitar el error de CORS Preflight.
+            // Mercado Libre permite peticiones de origen cruzado (CORS) a este endpoint si es una IP local.
+            const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+            
+            const res = await fetch(url);
 
             if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                console.warn('[ML Edge] Error:', res.status, errData);
+                console.warn('[ML Directo] Error:', res.status);
                 return null;
             }
+            
             const data = await res.json();
             const items = data.results || [];
             if (items.length === 0) return null;
-            return MLService.parseResults(items);
+
+            return MLService.parseItemsResults(items);
         } catch (err) {
-            console.error('[ML Edge] Error de red:', err);
+            console.error('[ML Directo] Error de red:', err);
             return null;
         }
     },
+
+    // Parser para Items Search API (/sites/MLM/search) → con precios reales
+    parseItemsResults: (items) => {
+        const catMap = MLService._mlCategoryMap;
+        return items.map(item => {
+            const freeShip  = item.shipping?.free_shipping === true;
+            const thumbnail = (item.thumbnail || '')
+                .replace('http://', 'https://')
+                .replace('-I.jpg', '-O.jpg');
+            const rawCat    = item.category_id || '';
+            const cat       = catMap[rawCat]
+                || rawCat.replace(/^MLM/, '').replace(/_/g, ' ').trim()
+                || 'General';
+            const rawTitle  = item.title || '';
+            const title     = rawTitle.length > 65 ? rawTitle.substring(0, 62) + '...' : rawTitle;
+
+            return {
+                id:          `ml_${item.id}`,
+                ml_id:       item.id,
+                title,
+                category:    cat,
+                image:       thumbnail || null,
+                description: 'Disponible en Mercado Libre',
+                brand:       item.attributes?.find(a => a.id === 'BRAND')?.value_name || '',
+                offers: [{
+                    store:    'mercadolibre',
+                    price:    item.price ?? null,
+                    shipping: freeShip ? 0 : 49,
+                    delivery: freeShip ? 'Envío gratis' : '3-5 días',
+                    url:      item.permalink,
+                }],
+                source:      'mercadolibre',
+                permalink:   item.permalink,
+                noPriceLink: !item.price,
+            };
+        });
+    },
+
 
     getItem: async (itemId) => {
         try {
@@ -175,6 +211,72 @@ const MLService = {
         }
     },
 
+    // Mapeo de categorías ML → nombres amigables
+    _mlCategoryMap: {
+        // Catalog API domain IDs
+        'MLM-MILK':           'Lácteos',
+        'MLM-BREAST_PUMPS':   'Bombas de Leche',
+        'MLM-FOOD':           'Alimentos',
+        'MLM-BEVERAGES':      'Bebidas',
+        'MLM-CLEANING':       'Limpieza',
+        'MLM-HEALTH':         'Salud',
+        'MLM-BABY_FOOD':      'Alimentos para Bebé',
+        'MLM-CEREALS':        'Cereales',
+        'MLM-SNACKS':         'Botanas',
+        'MLM-PERSONAL_CARE':  'Cuidado Personal',
+        'MLM-PET_FOOD':       'Mascotas',
+        // Items Search API category IDs (reales de MLM)
+        'MLM1055':   'Alimentos y Bebidas',
+        'MLM1246':   'Bebidas',
+        'MLM1403':   'Despensa',
+        'MLM409431': 'Lácteos',
+        'MLM1367':   'Limpieza y Hogar',
+        'MLM1276':   'Salud y Cuidado Personal',
+        'MLM1499':   'Mascotas',
+        'MLM1144':   'Electrónicos',
+        'MLM1000':   'Moda',
+    },
+
+    // Parser para resultados del catálogo de productos (Edge Function v5)
+    parseCatalogResults: (items) => {
+        const catMap = MLService._mlCategoryMap;
+        return items.map(item => {
+            // Limpiar categoría
+            const rawCat = item.category || '';
+            const friendlyCat = catMap[rawCat]
+                || rawCat.replace(/^MLM-/, '').replace(/_/g, ' ').toLowerCase()
+                         .replace(/\b\w/g, c => c.toUpperCase())
+                || 'General';
+            
+            // Truncar título a máximo 60 caracteres
+            const rawTitle = item.title || '';
+            const cleanTitle = rawTitle.length > 60
+                ? rawTitle.substring(0, 57) + '...'
+                : rawTitle;
+
+            return {
+                id:          `ml_${item.id}`,
+                ml_id:       item.ml_id || item.id,
+                title:       cleanTitle,
+                category:    friendlyCat,
+                image:       item.image || null,
+                description: 'Disponible en Mercado Libre',
+                brand:       item.brand || '',
+                offers:      (item.offers || []).map(o => ({
+                    store:    o.store || 'mercadolibre',
+                    price:    o.price ?? null,
+                    shipping: o.shipping ?? 49,
+                    delivery: o.price ? (o.delivery || '3-5 días') : 'Ver en ML',
+                    url:      o.url || item.permalink,
+                })),
+                source:      'mercadolibre',
+                permalink:   item.permalink,
+                noPriceLink: !(item.offers?.[0]?.price),
+            };
+        });
+    },
+
+    // Parser legacy (API directa de ML, formato antiguo)
     parseResults: (results) => {
         return results.map(item => {
             // El proxy devuelve formato simplificado; la API directa devuelve formato completo
@@ -211,19 +313,19 @@ const MLService = {
 // ---- LISTS SERVICE ---------------------------
 const ListsService = {
     save: async (userId, name, items) => {
-        if (!supabase || !userId) {
+        if (!_sb || !userId) {
             // Fallback a localStorage
             return null;
         }
-        const { data, error } = await supabase
+        const { data, error } = await _sb
             .from('saved_lists')
             .insert({ user_id: userId, name, items });
         return { data, error };
     },
 
     getAll: async (userId) => {
-        if (!supabase || !userId) return null;
-        const { data, error } = await supabase
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
             .from('saved_lists')
             .select('*')
             .eq('user_id', userId)
@@ -232,8 +334,8 @@ const ListsService = {
     },
 
     delete: async (listId) => {
-        if (!supabase) return null;
-        const { error } = await supabase
+        if (!_sb) return null;
+        const { error } = await _sb
             .from('saved_lists')
             .delete()
             .eq('id', listId);
@@ -244,8 +346,8 @@ const ListsService = {
 // ---- ADDRESSES SERVICE -----------------------
 const AddressService = {
     getAll: async (userId) => {
-        if (!supabase || !userId) return null;
-        const { data, error } = await supabase
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
             .from('addresses')
             .select('*')
             .eq('user_id', userId)
@@ -254,27 +356,27 @@ const AddressService = {
     },
 
     add: async (userId, address) => {
-        if (!supabase || !userId) return null;
-        const { data, error } = await supabase
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
             .from('addresses')
             .insert({ user_id: userId, ...address });
         return { data, error };
     },
 
     setDefault: async (userId, addressId) => {
-        if (!supabase) return null;
-        await supabase.from('addresses')
+        if (!_sb) return null;
+        await _sb.from('addresses')
             .update({ is_default: false })
             .eq('user_id', userId);
-        const { error } = await supabase.from('addresses')
+        const { error } = await _sb.from('addresses')
             .update({ is_default: true })
             .eq('id', addressId);
         return { error };
     },
 
     delete: async (addressId) => {
-        if (!supabase) return null;
-        const { error } = await supabase
+        if (!_sb) return null;
+        const { error } = await _sb
             .from('addresses')
             .delete()
             .eq('id', addressId);
@@ -282,5 +384,130 @@ const AddressService = {
     }
 };
 
+// ---- PRODUCTS SERVICE ------------------------
+// Guarda productos de ML en Supabase para historial y búsquedas futuras
+const ProductsService = {
+    // Insertar/actualizar un producto y su precio en Supabase
+    upsertFromML: async (mlProduct) => {
+        if (!_sb) return null;
+        try {
+            // 1. Upsert del producto en la tabla products
+            const { data: product, error: pErr } = await _sb
+                .from('products')
+                .upsert({
+                    ml_id:     mlProduct.ml_id,
+                    title:     mlProduct.title,
+                    category:  mlProduct.category || 'General',
+                    image_url: mlProduct.image,
+                    brand:     mlProduct.brand || null,
+                }, { onConflict: 'ml_id' })
+                .select('id')
+                .single();
+
+            if (pErr || !product) return null;
+
+            // 2. Insertar en price_history el precio actual
+            const offer = mlProduct.offers?.[0];
+            if (offer) {
+                await _sb.from('price_history').insert({
+                    product_id: product.id,
+                    store_id:   'mercadolibre',
+                    price:      offer.price,
+                    shipping:   offer.shipping ?? 49,
+                    in_stock:   true,
+                    source_url: mlProduct.permalink,
+                });
+            }
+            return product.id;
+        } catch (err) {
+            console.warn('[ProductsService] Error:', err.message);
+            return null;
+        }
+    },
+
+    // Buscar productos por texto en Supabase
+    search: async (query) => {
+        if (!_sb) return null;
+        const { data, error } = await _sb
+            .from('products')
+            .select(`
+                id, ml_id, title, category, image_url, brand,
+                price_history(store_id, price, shipping, scraped_at)
+            `)
+            .textSearch('title', query, { type: 'plain', config: 'spanish' })
+            .limit(20);
+        return error ? null : data;
+    }
+};
+
+// ---- ALERTS SERVICE --------------------------
+const AlertsService = {
+    getAll: async (userId) => {
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
+            .from('price_alerts')
+            .select('*, products(title, image_url)')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        return error ? null : data;
+    },
+
+    add: async (userId, productId, targetPrice, notifyPromo = false) => {
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
+            .from('price_alerts')
+            .insert({
+                user_id:      userId,
+                product_id:   productId,
+                target_price: targetPrice,
+                notify_promo: notifyPromo,
+                is_active:    true,
+            })
+            .select()
+            .single();
+        return { data, error };
+    },
+
+    remove: async (alertId) => {
+        if (!_sb) return null;
+        const { error } = await _sb
+            .from('price_alerts')
+            .update({ is_active: false })
+            .eq('id', alertId);
+        return { error };
+    }
+};
+
+// ---- USER PROFILE SERVICE --------------------
+const UserProfileService = {
+    get: async (userId) => {
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        return error ? null : data;
+    },
+
+    update: async (userId, updates) => {
+        if (!_sb || !userId) return null;
+        const { data, error } = await _sb
+            .from('user_profiles')
+            .update(updates)
+            .eq('id', userId)
+            .select()
+            .single();
+        return { data, error };
+    },
+
+    setPreferredStores: async (userId, storeIds) => {
+        if (!_sb || !userId) return null;
+        return UserProfileService.update(userId, { preferred_stores: storeIds });
+    }
+};
+
 // Inicializar Supabase cuando cargue el script
 initSupabase();
+

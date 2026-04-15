@@ -15,6 +15,8 @@ const CONFIG = {
     // --- SUPABASE ---
     SUPABASE_URL: 'TU_SUPABASE_URL_AQUI',
     SUPABASE_ANON_KEY: 'TU_SUPABASE_ANON_KEY_AQUI',
+    // Edge Function para proxy de ML (ya desplegada)
+    ML_SEARCH_URL: 'https://yiolvrhxjkozebcorqep.supabase.co/functions/v1/ml-search',
 
     // --- MERCADO LIBRE ---
     // access_token que obtuviste con client_credentials:

@@ -140,32 +140,27 @@ const MLService = {
 
     searchGeneral: async (query, limit = 20) => {
         try {
-            // En producción: usar proxy serverless para evitar bloqueo CORS/IP
-            // En local (archivo://): llamar directo con token
-            const isLocal = window.location.protocol === 'file:';
-            let url;
-            if (isLocal) {
-                await MLTokenManager.ensureValid();
-                url = `${MLService.BASE_URL}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-            } else {
-                // Proxy Vercel (sin exponer credenciales, sin bloqueo de IP)
-                url = `/api/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+            // Usar Supabase Edge Function (proxy seguro, sin bloqueo de IP)
+            const edgeUrl = `${CONFIG.ML_SEARCH_URL}?q=${encodeURIComponent(query)}&limit=${limit}`;
+            const headers = { 'Content-Type': 'application/json' };
+            // Si tenemos anon key, la incluimos (requerida por Supabase Edge Functions)
+            if (CONFIG.SUPABASE_ANON_KEY && CONFIG.SUPABASE_ANON_KEY !== 'TU_SUPABASE_ANON_KEY_AQUI') {
+                headers['Authorization'] = `Bearer ${CONFIG.SUPABASE_ANON_KEY}`;
             }
 
-            const fetchOpts = isLocal ? { headers: MLService._headers() } : {};
-            const res = await fetch(url, fetchOpts);
+            const res = await fetch(edgeUrl, { headers });
 
-            if (res.status === 403) {
-                console.warn('[ML API] 403 - token inválido o bloqueado');
-                if (window.showToast) showToast('Problema con la API de Mercado Libre', 'warning', 4000);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.warn('[ML Edge] Error:', res.status, errData);
                 return null;
             }
-            if (!res.ok) throw new Error('API error ' + res.status);
             const data = await res.json();
             const items = data.results || [];
+            if (items.length === 0) return null;
             return MLService.parseResults(items);
         } catch (err) {
-            console.error('[ML API] Error:', err);
+            console.error('[ML Edge] Error de red:', err);
             return null;
         }
     },

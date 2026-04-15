@@ -13,8 +13,8 @@
 
 const CONFIG = {
     // --- SUPABASE ---
-    SUPABASE_URL: 'TU_SUPABASE_URL_AQUI',
-    SUPABASE_ANON_KEY: 'TU_SUPABASE_ANON_KEY_AQUI',
+    SUPABASE_URL: 'https://yiolvrhxjkozebcorqep.supabase.co',
+    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlpb2x2cmh4amtvemViY29ycWVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTcwOTksImV4cCI6MjA5MTc3MzA5OX0.bYMXCyH4lsmHhS2Y4zNNhy5EV_otw8X4qtsu9Wxee_Q',
     // Edge Function para proxy de ML (ya desplegada)
     ML_SEARCH_URL: 'https://yiolvrhxjkozebcorqep.supabase.co/functions/v1/ml-search',
 

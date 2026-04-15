@@ -140,20 +140,14 @@ const MLService = {
 
     searchGeneral: async (query, limit = 20) => {
         try {
-            // Utilizamos la Edge Function (v9 scraper) porque la API nativa lanza 403 sin tokens/autenticación real
-            const edgeUrl = `${CONFIG.ML_SEARCH_URL}?q=${encodeURIComponent(query)}&limit=${limit}`;
-            const headers = { 'Content-Type': 'application/json' };
+            // Pivoting to Vercel Serverless Function to test Soriana Scraping
+            const vercelUrl = `/api/search?q=${encodeURIComponent(query)}&limit=${limit}`;
             
-            // Requerido por Supabase JWT para invocar la Edge Function
-            if (CONFIG.SUPABASE_ANON_KEY && !CONFIG.SUPABASE_ANON_KEY.includes('TU_')) {
-                headers['Authorization'] = `Bearer ${CONFIG.SUPABASE_ANON_KEY}`;
-            }
-
-            const res = await fetch(edgeUrl, { headers });
+            const res = await fetch(vercelUrl);
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                console.warn('[ML Edge] Error:', res.status, errData);
+                console.warn('[Soriana Vercel] Error:', res.status, errData);
                 return null;
             }
             
@@ -163,7 +157,7 @@ const MLService = {
 
             return MLService.parseItemsResults(items);
         } catch (err) {
-            console.error('[ML Network] Error de red:', err);
+            console.error('[Soriana Network] Error de red:', err);
             return null;
         }
     },

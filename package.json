@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "description": "Comparador de precios de supermercados en México",
   "private": true,
+  "scripts": {
+    "build": "echo 'No build step needed for static site'"
+  },
   "engines": {
     "node": ">=18"
   }

@@ -181,24 +181,35 @@ const MLService = {
     },
 
     parseResults: (results) => {
-        return results.map(item => ({
-            id: `ml_${item.id}`,
-            ml_id: item.id,
-            title: item.title,
-            category: item.category_id || 'General',
-            image: item.thumbnail?.replace('-I.jpg', '-O.jpg'), // mejor calidad
-            description: item.seller?.nickname ? `Vendedor: ${item.seller.nickname}` : '',
-            brand: item.attributes?.find(a => a.id === 'BRAND')?.value_name || '',
-            offers: [{
-                store: 'mercadolibre',
-                price: item.price,
-                shipping: item.shipping?.free_shipping ? 0 : 49,
-                delivery: item.shipping?.free_shipping ? 'Envío gratis' : '3-5 días',
-                url: item.permalink
-            }],
-            source: 'mercadolibre',
-            permalink: item.permalink
-        }));
+        return results.map(item => {
+            // El proxy devuelve formato simplificado; la API directa devuelve formato completo
+            // Soportamos ambos:
+            const freeShipping = item.free_shipping ?? item.shipping?.free_shipping ?? false;
+            const sellerName = typeof item.seller === 'string' ? item.seller : (item.seller?.nickname || '');
+            const brand = item.brand || item.attributes?.find(a => a.id === 'BRAND')?.value_name || '';
+            const image = item.thumbnail
+                ? item.thumbnail.replace('-I.jpg', '-O.jpg').replace('http://', 'https://')
+                : null;
+
+            return {
+                id: `ml_${item.id}`,
+                ml_id: item.id,
+                title: item.title,
+                category: item.category_id || 'General',
+                image,
+                description: sellerName ? `Vendedor: ${sellerName}` : 'Mercado Libre',
+                brand,
+                offers: [{
+                    store: 'mercadolibre',
+                    price: item.price,
+                    shipping: freeShipping ? 0 : 49,
+                    delivery: freeShipping ? 'Envío gratis' : '3-5 días',
+                    url: item.permalink
+                }],
+                source: 'mercadolibre',
+                permalink: item.permalink
+            };
+        });
     },
 };
 

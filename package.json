@@ -1,0 +1,9 @@
+{
+  "name": "market4u",
+  "version": "2.0.0",
+  "description": "Comparador de precios de supermercados en México",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,8 +1,8 @@
-// api/search.js — Vercel Serverless Function
+// api/search.js — Vercel Serverless Function (CommonJS)
 // Proxy para la API de Mercado Libre
 // Las credenciales están en Vercel Environment Variables (no en el código)
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');

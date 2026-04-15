@@ -140,15 +140,20 @@ const MLService = {
 
     searchGeneral: async (query, limit = 20) => {
         try {
-            // Buscamos directamente desde el navegador del usuario en México.
-            // Es CRUCIAL no enviar el header 'Authorization' para evitar el error de CORS Preflight.
-            // Mercado Libre permite peticiones de origen cruzado (CORS) a este endpoint si es una IP local.
-            const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+            // Utilizamos la Edge Function de Supabase porque ML bloquea las peticiones desde el navegador (403)
+            const edgeUrl = `${CONFIG.ML_SEARCH_URL}?q=${encodeURIComponent(query)}&limit=${limit}`;
+            const headers = { 'Content-Type': 'application/json' };
             
-            const res = await fetch(url);
+            // Requerido por Supabase JWT para invocar la Edge Function
+            if (CONFIG.SUPABASE_ANON_KEY && !CONFIG.SUPABASE_ANON_KEY.includes('TU_')) {
+                headers['Authorization'] = `Bearer ${CONFIG.SUPABASE_ANON_KEY}`;
+            }
+
+            const res = await fetch(edgeUrl, { headers });
 
             if (!res.ok) {
-                console.warn('[ML Directo] Error:', res.status);
+                const errData = await res.json().catch(() => ({}));
+                console.warn('[ML Edge] Error:', res.status, errData);
                 return null;
             }
             
@@ -158,7 +163,7 @@ const MLService = {
 
             return MLService.parseItemsResults(items);
         } catch (err) {
-            console.error('[ML Directo] Error de red:', err);
+            console.error('[ML Network] Error de red:', err);
             return null;
         }
     },

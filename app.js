@@ -169,7 +169,7 @@ const mergeProducts = (products) => {
     const merged = [];
     
     // Busca patrones amplios de súper: 3l, 500g, 18 rollos, 90 pañuelos, etc.
-    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|oz|pack|pz|pzas|piezas|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas|caja|cajas)/i;
+    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
     // Buscar cantidades de piezas (12 pack, 6 botellas, etc)
     const qtyRegex = /(?:([0-9]+)\s*(?:pack|botellas|latas|piezas|pz|pzas|x))/i;
 

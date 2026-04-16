@@ -1386,14 +1386,15 @@ document.getElementById('googleSigninBtn').addEventListener('click', async () =>
 // Profile / Logout
 closeProfileModal.addEventListener('click', () => profileModal.classList.remove('active'));
 profileModal.addEventListener('click', (e) => { if (e.target === profileModal) profileModal.classList.remove('active'); });
-logoutBtn.addEventListener('click', async () => {
+logoutBtn.addEventListener('click', () => {
     logoutBtn.innerText = 'Saliendo...';
     logoutBtn.style.pointerEvents = 'none';
     
+    // Llamada no bloqueante (Fire and Forget)
     try {
-        if (AuthService.isReady()) await AuthService.signOut();
+        if (AuthService.isReady()) AuthService.signOut().catch(e => console.warn(e));
     } catch(err) {
-        console.warn('Error backend al cerrar sesión:', err);
+        // ...
     }
     
     // Limpieza agresiva frontend
@@ -1404,18 +1405,17 @@ logoutBtn.addEventListener('click', async () => {
     cart = [];
     saveState();
     
-    // Limpiar localStorage cache
+    // Limpiar localStorage cache de Supabase genuina
     Object.keys(localStorage).forEach(k => {
-        if(k.startsWith('supabase')) localStorage.removeItem(k);
+        if(k.startsWith('sb-') || k.includes('supabase')) localStorage.removeItem(k);
     });
 
     profileModal.classList.remove('active');
-    showToast('Sesión cerrada correctamente', 'info');
     
     // Recarga absoluta para garantizar estado limpio
     setTimeout(() => {
         window.location.href = window.location.pathname;
-    }, 400);
+    }, 200);
 });
 
 tabBtns.forEach(btn => {

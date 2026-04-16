@@ -1,6 +1,7 @@
 const fetchSoriana = async (q, limit, offset) => {
     try {
-        const url = `https://www.soriana.com/buscar?q=${encodeURIComponent(q.replace(/ /g, '+'))}&sz=${limit}&start=${offset}`;
+        const querySafe = encodeURIComponent(q).replace(/%20/g, '+');
+        const url = `https://www.soriana.com/buscar?q=${querySafe}&sz=${limit}&start=${offset}`;
         const response = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",

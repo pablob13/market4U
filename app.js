@@ -895,8 +895,10 @@ window.openProductModal = async (id, tab = 'stores') => {
         if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
             const rawHistory = await MLService.getRealHistory(product.id);
             if (rawHistory && rawHistory.length > 0) {
-                const priceStamps = Array.from(new Set(rawHistory.map(h => h.price)));
-                if (priceStamps.length > 0) {
+                // Filter specifically for the history of the winning store
+                const storeHistory = rawHistory.filter(h => h.store_id === product.bestOffer.store);
+                if (storeHistory.length > 0) {
+                    const priceStamps = Array.from(new Set(storeHistory.map(h => h.price)));
                     vals[3] = curP;
                     vals[2] = priceStamps[priceStamps.length - 1] || curP;
                     vals[1] = priceStamps[priceStamps.length - 2] || vals[2];

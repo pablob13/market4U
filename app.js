@@ -924,7 +924,7 @@ window.openProductModal = async (id, tab = 'stores') => {
             </div>
             
             <div class="price-chart-container" style="margin-top: 0;">
-                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i data-lucide="trending-down" style="color:var(--success); width:18px;"></i> Historial de Precios</h3>
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i data-lucide="trending-down" style="color:var(--success); width:18px;"></i> Historial Analítico (En Vivo)</h3>
                 <p style="font-size: 0.85rem; color: var(--text-secondary);">El precio actual es tu ventana histórica perfecta para comprar.</p>
                 <div style="position:relative; width: 100%; max-width: 480px; margin: 2rem auto 0; padding-bottom: 1rem;">
                     <svg viewBox="0 0 300 135" style="width: 100%; display:block; overflow: visible;">

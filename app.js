@@ -222,6 +222,10 @@ const mergeProducts = (products) => {
         
         if (foundMatch) {
             foundMatch.offers.push(...p.offers);
+            // Siempre dar preferencia gráfica a las fotografías de Chedraui sobre las de Soriana
+            if (p.source === 'chedraui' && p.image) {
+                foundMatch.image = p.image;
+            }
         } else {
             merged.push({ ...p, offers: [...p.offers] });
         }

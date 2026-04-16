@@ -984,9 +984,13 @@ window.openProductModal = async (id, tab = 'stores') => {
         }
     }
 
+        const hasPromoModal = product.bestOffer.list_price && product.bestOffer.list_price > product.bestOffer.price;
+        const discountPctModal = hasPromoModal ? Math.round((1 - product.bestOffer.price / product.bestOffer.list_price) * 100) : 0;
+
     pdpContentBody.innerHTML = `
         <div class="pdp-container">
-            <div class="pdp-image-col">
+            <div class="pdp-image-col" style="position:relative;">
+                ${hasPromoModal ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.85rem; font-weight:700; padding:4px 10px; border-radius:4px; z-index:5;">-${discountPctModal}%</span>` : ''}
                 <img src="${product.image}" alt="${product.title}">
                 <div class="pdp-desc-box">
                     <h3><i data-lucide="info" style="width:18px;"></i> Detalles del Producto</h3>

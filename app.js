@@ -1708,6 +1708,37 @@ renderNotifications();
 // Restaurar sesión de Supabase al recargar
 (async () => {
     if (!AuthService.isReady()) return;
+
+    // Escuchar errores devueltos por Google OAuth en el Hash
+    if (window.location.hash && window.location.hash.includes('error=')) {
+        const urlParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+        const errorDesc = urlParams.get('error_description');
+        if (errorDesc) setTimeout(() => showToast(`Error de Autenticación: ${errorDesc.replace(/\+/g, ' ')}`, 'error', 8000), 1000);
+    }
+
+    // 1. Escuchar cambios ANTES de cualquier `await` para evitar perder el evento INITIAL_SESSION
+    AuthService.onAuthChange(async (session) => {
+        if (session?.user) {
+            user = {
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.user_metadata?.name || session.user.email.split('@')[0]
+            };
+            saveState();
+            renderUserNav();
+            loginModal.classList.remove('active');
+            let welcomeName = user.name;
+            if (welcomeName === 'pablobesoytrigueros') welcomeName = 'Pablo';
+            showToast(`¡Bienvenido, ${welcomeName}!`, 'success');
+            await syncListsFromSupabase();
+        } else if (user) {
+            user = null;
+            saveState();
+            renderUserNav();
+        }
+    });
+
+    // 2. Comprobar sesión pasivamente
     const session = await AuthService.getSession();
     if (session?.user) {
         user = {
@@ -1720,25 +1751,6 @@ renderNotifications();
         await syncListsFromSupabase();
         console.log('[Market2U] Sesión restaurada:', user.name);
     }
-    // Escuchar cambios de sesión (ej. OAuth redirect)
-    AuthService.onAuthChange(async (session) => {
-        if (session?.user) {
-            user = {
-                id: session.user.id,
-                email: session.user.email,
-                name: session.user.user_metadata?.name || session.user.email.split('@')[0]
-            };
-            saveState();
-            renderUserNav();
-            loginModal.classList.remove('active');
-            showToast(`¡Bienvenido, ${user.name}!`, 'success');
-            await syncListsFromSupabase();
-        } else if (user) {
-            user = null;
-            saveState();
-            renderUserNav();
-        }
-    });
 })();
 
 // PWA - Service Worker Registration

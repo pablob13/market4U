@@ -525,7 +525,7 @@ const renderProducts = (data) => {
                                       ${product.sortedOffers.slice(0,3).map(o => {
                                          const s = stores[o.store];
                                          if(!s) return '';
-                                         return \`<div class="store-logo-small" title="${formatCurrency(o.price)}" style="background-color: ${s.bgColor}; color: ${s.color}; font-size:0.7rem; width:22px; height:22px;">${s.logo}</div>\`;
+                                         return `<div class="store-logo-small" title="${formatCurrency(o.price)}" style="background-color: ${s.bgColor}; color: ${s.color}; font-size:0.7rem; width:22px; height:22px;">${s.logo}</div>`;
                                       }).join('')}
                                       ${product.sortedOffers.length > 3 ? `<div class="store-logo-small" style="background:#eee; color:#666; font-size:0.7rem; width:22px; height:22px;">+</div>` : ''}
                                    </div>`

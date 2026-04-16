@@ -1516,7 +1516,7 @@ const runMLSearch = async (query, isPagination = false) => {
 
     isSearchingML = true;
     lastMLQuery   = query;
-    showMLBadge(`⚡ Buscando en la Nube (Soriana/Chedraui)... ${isPagination ? '[Pagina ' + ((currentOffset/currentSearchLimit)+1) + ']' : ''}`);
+    showMLBadge(`⚡ Comparando en Market4U... ${isPagination ? '[Pagina ' + ((currentOffset/currentSearchLimit)+1) + ']' : ''}`);
 
     try {
         const mlResults = await MLService.searchGeneral(query, currentSearchLimit, currentOffset);

@@ -1561,7 +1561,7 @@ const runMLSearch = async (query, isPagination = false) => {
         currentData = [...localItems, ...newFromML];
         renderProducts(currentData);
 
-        showMLBadge(`✓ ${newFromML.length} resultados de Mercado Libre`, '#10b981');
+        showMLBadge(`✓ ${newFromML.length} resultados encontrados en Market4U`, '#10b981');
         hideMLBadge(4000);
 
     } catch (err) {

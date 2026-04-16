@@ -1258,7 +1258,7 @@ const runMLSearch = async (query) => {
 
     isSearchingML = true;
     lastMLQuery   = query;
-    showMLBadge('⚡ Buscando en Mercado Libre...');
+    showMLBadge('⚡ Buscando en la Nube (Soriana)...');
 
     try {
         const mlResults = await MLService.searchGeneral(query, 20);
@@ -1268,8 +1268,8 @@ const runMLSearch = async (query) => {
             return;
         }
 
-        // Limpiar resultados previos de ML de allData para evitar acumulación
-        allData = allData.filter(p => !p.id?.startsWith('ml_'));
+        // Limpiar resultados previos de Scraper de allData para evitar acumulación
+        allData = allData.filter(p => !p.id?.startsWith('sor_'));
 
         const processedML = processProducts(mlResults);
 

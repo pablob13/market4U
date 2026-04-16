@@ -166,8 +166,8 @@ const mergeProducts = (products) => {
     const merged = [];
     
     const extractSize = (title) => {
-        // Busca patrones como 3l, 600ml, 2.5 L, 12 pack, etc.
-        const match = title.toLowerCase().match(/([0-9.,]+)\s*(ml|l|lt|g|kg|oz|pack|pz|piezas)/);
+        // Busca patrones amplios de súper: 3l, 500g, 18 rollos, 90 pañuelos, etc.
+        const match = title.toLowerCase().match(/([0-9.,]+)\s*(ml|l|lt|g|kg|oz|pack|pz|pzas|piezas|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas|caja|cajas)/);
         return match ? match[0].replace(/\s/g, '') : null;
     };
 
@@ -188,7 +188,10 @@ const mergeProducts = (products) => {
             const intersection = pTokens.filter(t => exTokens.includes(t)).length;
             const union = new Set([...pTokens, ...exTokens]).size;
             
-            if (union > 0 && intersection / union >= 0.55) { // 55% Overlap minimo + validación de volumen
+            // Si provienen de la misma tienda, requieren un umbral muy alto para evitar fusionar variaciones del mismo catálogo
+            const threshold = (p.seller === existing.seller) ? 0.85 : 0.55;
+
+            if (union > 0 && (intersection / union >= threshold)) {
                 foundMatch = existing;
                 break;
             }

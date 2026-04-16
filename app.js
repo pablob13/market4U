@@ -161,6 +161,38 @@ const formatCurrency = (value) => {
     }).format(value);
 };
 
+// Fuzzy Merging Algorithm for External Scraping
+const mergeProducts = (products) => {
+    const merged = [];
+    for (const p of products) {
+        // Encontrar producto similar
+        const pTokens = p.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
+        
+        let foundMatch = null;
+        for (const existing of merged) {
+            const exTokens = existing.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
+            
+            // Calculo de Jaccard Similarity (Intersección / Unión)
+            const intersection = pTokens.filter(t => exTokens.includes(t)).length;
+            const union = new Set([...pTokens, ...exTokens]).size;
+            
+            if (union > 0 && intersection / union > 0.45) { // 45% Overlap minimo para nombres largos como Refresco Coca-Cola vs Refresco Coca Cola Original
+                foundMatch = existing;
+                break;
+            }
+        }
+        
+        if (foundMatch) {
+            // Push any new offers onto the matched item's offers array
+            foundMatch.offers.push(...p.offers);
+        } else {
+            // Push a deep clone if no match found
+            merged.push({ ...p, offers: [...p.offers] });
+        }
+    }
+    return merged;
+};
+
 // Process Data to find best pricing
 const processProducts = (productList) => {
     return productList.map(item => {
@@ -484,12 +516,19 @@ const renderProducts = (data) => {
                 <div style="cursor: pointer;" onclick="openProductModal('${product.id}')">
                     <span class="product-category">${product.category}</span>
                     <h3 class="product-title">${product.title}</h3>
-                    <div class="product-price-section">
+                    <div class="product-price-section" style="flex-direction:column; align-items:flex-start; gap:0.2rem;">
                         <span class="price-label">${product.displayBestOffer.price ? 'Desde' : ''}</span>
-                        <div style="display:flex; align-items:center;">
+                        <div style="display:flex; align-items:center; justify-content: space-between; width: 100%;">
                             ${product.displayBestOffer.price
                                 ? `<span class="best-price">${formatCurrency(product.displayBestOffer.price)}</span>
-                                   <div class="store-logo-small" style="background-color: ${bestStore.bgColor}; color: ${bestStore.color}">${bestStore.logo}</div>`
+                                   <div style="display:flex; gap:0.25rem;">
+                                      ${product.sortedOffers.slice(0,3).map(o => {
+                                         const s = stores[o.store];
+                                         if(!s) return '';
+                                         return \`<div class="store-logo-small" title="\${formatCurrency(o.price)}" style="background-color: \${s.bgColor}; color: \${s.color}; font-size:0.7rem; width:22px; height:22px;">\${s.logo}</div>\`;
+                                      }).join('')}
+                                      ${product.sortedOffers.length > 3 ? `<div class="store-logo-small" style="background:#eee; color:#666; font-size:0.7rem; width:22px; height:22px;">+</div>` : ''}
+                                   </div>`
                                 : `<a href="${product.permalink || product.displayBestOffer.url || '#'}" target="_blank"
                                       style="font-size:0.85rem; color:var(--accent-color); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:4px;"
                                       onclick="event.stopPropagation()">
@@ -1269,9 +1308,10 @@ const runMLSearch = async (query) => {
         }
 
         // Limpiar resultados previos de Scraper de allData para evitar acumulación
-        allData = allData.filter(p => !p.id?.startsWith('sor_'));
+        allData = allData.filter(p => !p.id?.startsWith('sor_') && !p.id?.startsWith('che_'));
 
-        const processedML = processProducts(mlResults);
+        const mergedScraped = mergeProducts(mlResults);
+        const processedML = processProducts(mergedScraped);
 
         // Calcular resultados locales actuales para deduplicar por título
         const localQuery = query.toLowerCase();

@@ -168,7 +168,9 @@ const MLService = {
             const rawTitle  = item.title || '';
             const title     = rawTitle.length > 65 ? rawTitle.substring(0, 62) + '...' : rawTitle;
 
-            const storeKey = item.seller === 'Chedraui' ? 'chedraui' : 'soriana';
+            let storeKey = 'soriana';
+            if (item.seller === 'Chedraui') storeKey = 'chedraui';
+            if (item.seller === 'HEB') storeKey = 'heb';
 
             return {
                 id:          item.id,

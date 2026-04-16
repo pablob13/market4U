@@ -1422,7 +1422,7 @@ const runMLSearch = async (query, isPagination = false) => {
     }
 };
 
-const applyFilters = () => {
+const applyFilters = (triggerML = false) => {
     const query  = searchInput.value.toLowerCase().trim();
     const sortVal = sortSelect.value;
 
@@ -1447,19 +1447,23 @@ const applyFilters = () => {
     renderProducts(filtered);
 
     // === Búsqueda ML con debounce ===
-    if (query.length >= 3) {
-        clearTimeout(mlSearchTimeout);
-        lastMLQuery = '';  // reset para permitir re-búsqueda al cambiar query
-        currentOffset = 0;
-        currentPage = 1;
-        mlSearchTimeout = setTimeout(() => runMLSearch(query, false), 700);
-    } else {
-        hideMLBadge();
+    if (triggerML) {
+        if (query.length >= 3) {
+            clearTimeout(mlSearchTimeout);
+            lastMLQuery = '';  // reset para permitir re-búsqueda al cambiar query
+            mlSearchTimeout = setTimeout(() => runMLSearch(query, false), 700);
+        } else {
+            hideMLBadge();
+        }
     }
 };
 
-searchInput.addEventListener('input', applyFilters);
-sortSelect.addEventListener('change', applyFilters);
+searchInput.addEventListener('input', () => {
+    currentOffset = 0;
+    currentPage = 1;
+    applyFilters(true);
+});
+sortSelect.addEventListener('change', () => applyFilters(false));
 searchButton.addEventListener('click', () => {
     clearTimeout(mlSearchTimeout);
     isSearchingML = false;   // forzar re-búsqueda aunque haya una en curso
@@ -1467,7 +1471,7 @@ searchButton.addEventListener('click', () => {
     currentOffset = 0;
     currentPage = 1;
 
-    applyFilters();
+    applyFilters(false);
     document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
     
     // Lanzar ML inmediatamente (sin debounce)

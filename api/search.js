@@ -22,6 +22,11 @@ module.exports = async function handler(req, res) {
         const html = await response.text();
         const results = [];
         
+        // Debugging for Cloudflare blocks on Vercel Node Env
+        if (html.includes('Cloudflare') || html.includes('captcha') || html.length < 5000) {
+           return res.status(200).json({ results: [], total: 0, debug: html.substring(0, 500) });
+        }
+        
         // Parsing Soriana HTML structure
         const blocks = html.split('class="product-tile ');
         

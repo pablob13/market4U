@@ -1313,7 +1313,7 @@ const runMLSearch = async (query) => {
     showMLBadge('⚡ Buscando en la Nube (Soriana)...');
 
     try {
-        const mlResults = await MLService.searchGeneral(query, 20);
+        const mlResults = await MLService.searchGeneral(query, 48);
 
         if (!mlResults || mlResults.length === 0) {
             hideMLBadge();

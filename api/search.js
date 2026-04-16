@@ -1,6 +1,6 @@
 const fetchSoriana = async (q, limit) => {
     try {
-        const url = `https://www.soriana.com/buscar?q=${encodeURIComponent(q.replace(/ /g, '+'))}`;
+        const url = `https://www.soriana.com/buscar?q=${encodeURIComponent(q.replace(/ /g, '+'))}&sz=${limit}`;
         const response = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -47,7 +47,8 @@ const fetchSoriana = async (q, limit) => {
 
 const fetchChedraui = async (q, limit) => {
     try {
-        const url = `https://www.chedraui.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}`;
+        const toIndex = limit - 1;
+        const url = `https://www.chedraui.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}?_from=0&_to=${toIndex}`;
         const response = await fetch(url, { headers: { "Accept": "application/json" } });
         if (!response.ok) return [];
 

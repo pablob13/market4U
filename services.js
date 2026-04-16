@@ -162,39 +162,24 @@ const MLService = {
         }
     },
 
-    // Parser para Items Search API (/sites/MLM/search) → con precios reales
+    // Parser para el Scraper de Soriana vía Vercel
     parseItemsResults: (items) => {
-        const catMap = MLService._mlCategoryMap;
         return items.map(item => {
-            const freeShip  = item.shipping?.free_shipping === true;
-            const thumbnail = (item.thumbnail || '')
-                .replace('http://', 'https://')
-                .replace('-I.jpg', '-O.jpg');
-            const rawCat    = item.category_id || '';
-            const cat       = catMap[rawCat]
-                || rawCat.replace(/^MLM/, '').replace(/_/g, ' ').trim()
-                || 'General';
             const rawTitle  = item.title || '';
             const title     = rawTitle.length > 65 ? rawTitle.substring(0, 62) + '...' : rawTitle;
 
             return {
-                id:          `ml_${item.id}`,
-                ml_id:       item.id,
+                id:          item.id, // ya viene preformateado como sor_... desde la API
+                ml_id:       null,
                 title,
-                category:    cat,
-                image:       thumbnail || null,
-                description: 'Disponible en Mercado Libre',
-                brand:       item.attributes?.find(a => a.id === 'BRAND')?.value_name || '',
-                offers: [{
-                    store:    'mercadolibre',
-                    price:    item.price ?? null,
-                    shipping: freeShip ? 0 : 49,
-                    delivery: freeShip ? 'Envío gratis' : '3-5 días',
-                    url:      item.permalink,
-                }],
-                source:      'mercadolibre',
-                permalink:   item.permalink,
-                noPriceLink: !item.price,
+                category:    'General', // Soriana scraper no trae category_id aun
+                image:       item.thumbnail,
+                description: 'Disponible en Soriana',
+                bestOffer:   { price: item.price || 0, store: 'soriana' },
+                sortedOffers: [{ price: item.price || 0, store: 'soriana', name: 'Soriana' }],
+                offers: {
+                    soriana: { price: item.price || 0, link: item.permalink || '#', seller: 'Soriana' }
+                }
             };
         });
     },

@@ -82,6 +82,8 @@ let alerts = []; // Ahora es array de objetos
 let addresses = []; // Direcciones de envío
 let currentAlertProductId = null;
 let activeTab = 'listas'; // Modificado para que sea la primera pestaña
+let currentOffset = 0;
+let currentSearchLimit = 48;
 
 let mockNotifications = [
     { id: 1, title: '¡Alerta de Precio Cumplida!', body: 'El Papel Pétalo bajó un 15% en HEB. Está en $65.00.', time: 'Hace 5 min', unread: true },
@@ -184,14 +186,14 @@ const mergeProducts = (products) => {
 
             const exTokens = existing.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
             
-            // Calculo de Jaccard Similarity (Intersección / Unión)
+            // Calculo de similitud: Intersección sobre la longitud mínima
             const intersection = pTokens.filter(t => exTokens.includes(t)).length;
-            const union = new Set([...pTokens, ...exTokens]).size;
+            const minTokens = Math.min(pTokens.length, exTokens.length);
             
             // Si provienen de la misma tienda, requieren un umbral muy alto para evitar fusionar variaciones del mismo catálogo
             const threshold = (p.seller === existing.seller) ? 0.85 : 0.55;
 
-            if (union > 0 && (intersection / union >= threshold)) {
+            if (minTokens > 0 && (intersection / minTokens >= threshold)) {
                 foundMatch = existing;
                 break;
             }
@@ -559,6 +561,22 @@ const renderProducts = (data) => {
         `;
         resultsGrid.appendChild(card);
     });
+
+    // Add Load More Button at the end of the grid if there are any results
+    if (displayData.length > 0 && typeof searchInput !== 'undefined') {
+        const q = searchInput.value.toLowerCase().trim();
+        if (q.length >= 3) {
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = "grid-column: 1/-1; display:flex; justify-content:center; padding: 2rem 0;";
+            btnContainer.innerHTML = `<button id="loadMoreBtn" class="btn-primary" style="padding: 0.8rem 2rem; border-radius: 30px; font-weight:600; cursor:pointer;">Cargar más resultados <i data-lucide="chevron-down" style="width:20px; vertical-align:middle; margin-left:8px;"></i></button>`;
+            resultsGrid.appendChild(btnContainer);
+            
+            document.getElementById('loadMoreBtn').addEventListener('click', () => {
+                currentOffset += currentSearchLimit; // Avanzar offset
+                runMLSearch(q, true); // Pasar isPagination = true
+            });
+        }
+    }
     
     lucide.createIcons();
 };
@@ -1302,26 +1320,31 @@ const hideMLBadge = (delay = 0) => {
 };
 
 // Núcleo: ejecuta la búsqueda en ML y fusiona los resultados
-const runMLSearch = async (query) => {
+const runMLSearch = async (query, isPagination = false) => {
     if (!query || query.length < 3) return;
     if (typeof MLService === 'undefined') return;
     if (isSearchingML) return;                 // evitar búsquedas paralelas
-    if (query === lastMLQuery) return;         // no re-buscar lo mismo
+    if (!isPagination && query === lastMLQuery) return;         // no re-buscar lo mismo si no es paginación
 
     isSearchingML = true;
     lastMLQuery   = query;
-    showMLBadge('⚡ Buscando en la Nube (Soriana)...');
+    showMLBadge(`⚡ Buscando en la Nube (Soriana/Chedraui)... ${isPagination ? '[Pagina ' + ((currentOffset/currentSearchLimit)+1) + ']' : ''}`);
 
     try {
-        const mlResults = await MLService.searchGeneral(query, 48);
+        const mlResults = await MLService.searchGeneral(query, currentSearchLimit, currentOffset);
 
         if (!mlResults || mlResults.length === 0) {
             hideMLBadge();
+            // Si ya no hay resultados paginados, podríamos ocultar el botón
+            const btn = document.getElementById('loadMoreBtn');
+            if (btn) btn.style.display = 'none';
             return;
         }
 
-        // Limpiar resultados previos de Scraper de allData para evitar acumulación
-        allData = allData.filter(p => !p.id?.startsWith('sor_') && !p.id?.startsWith('che_'));
+        // Limpiar resultados previos SOLO si es una búsqueda nueva
+        if (!isPagination) {
+           allData = allData.filter(p => !p.id?.startsWith('sor_') && !p.id?.startsWith('che_'));
+        }
 
         const mergedScraped = mergeProducts(mlResults);
         const processedML = processProducts(mergedScraped);
@@ -1389,7 +1412,8 @@ const applyFilters = () => {
     if (query.length >= 3) {
         clearTimeout(mlSearchTimeout);
         lastMLQuery = '';  // reset para permitir re-búsqueda al cambiar query
-        mlSearchTimeout = setTimeout(() => runMLSearch(query), 700);
+        currentOffset = 0;
+        mlSearchTimeout = setTimeout(() => runMLSearch(query, false), 700);
     } else {
         hideMLBadge();
     }
@@ -1401,13 +1425,14 @@ searchButton.addEventListener('click', () => {
     clearTimeout(mlSearchTimeout);
     isSearchingML = false;   // forzar re-búsqueda aunque haya una en curso
     lastMLQuery   = '';      // forzar re-búsqueda aunque sea la misma query
+    currentOffset = 0;
 
     applyFilters();
     document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
     
     // Lanzar ML inmediatamente (sin debounce)
     const query = searchInput.value.toLowerCase().trim();
-    if (query.length >= 3) runMLSearch(query);
+    if (query.length >= 3) runMLSearch(query, false);
 });
 
 /* --- MASSIVE MATRIX LOGIC --- */

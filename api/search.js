@@ -1,6 +1,6 @@
-const fetchSoriana = async (q, limit) => {
+const fetchSoriana = async (q, limit, offset) => {
     try {
-        const url = `https://www.soriana.com/buscar?q=${encodeURIComponent(q.replace(/ /g, '+'))}&sz=${limit}`;
+        const url = `https://www.soriana.com/buscar?q=${encodeURIComponent(q.replace(/ /g, '+'))}&sz=${limit}&start=${offset}`;
         const response = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -45,10 +45,10 @@ const fetchSoriana = async (q, limit) => {
     }
 };
 
-const fetchChedraui = async (q, limit) => {
+const fetchChedraui = async (q, limit, offset) => {
     try {
-        const toIndex = limit - 1;
-        const url = `https://www.chedraui.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}?_from=0&_to=${toIndex}`;
+        const toIndex = offset + limit - 1;
+        const url = `https://www.chedraui.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}?_from=${offset}&_to=${toIndex}`;
         const response = await fetch(url, { headers: { "Accept": "application/json" } });
         if (!response.ok) return [];
 
@@ -90,13 +90,13 @@ module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    const { q, limit = 20 } = req.query;
+    const { q, limit = 48, offset = 0 } = req.query;
     if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
 
     try {
         const [soriana, chedraui] = await Promise.all([
-            fetchSoriana(q, limit),
-            fetchChedraui(q, limit)
+            fetchSoriana(q, Number(limit), Number(offset)),
+            fetchChedraui(q, Number(limit), Number(offset))
         ]);
 
         const merged = [...soriana, ...chedraui];

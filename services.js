@@ -179,9 +179,16 @@ const MLService = {
                 description: `Disponible en ${item.seller}`,
                 bestOffer:   { price: item.price || 0, store: storeKey },
                 sortedOffers: [{ price: item.price || 0, store: storeKey, name: item.seller }],
-                offers: {
-                    [storeKey]: { price: item.price || 0, link: item.permalink || '#', seller: item.seller }
-                }
+                offers: [{
+                    store:    storeKey,
+                    price:    item.price || 0,
+                    shipping: 0,
+                    delivery: 'N/A',
+                    url:      item.permalink,
+                }],
+                source:      storeKey,
+                permalink:   item.permalink,
+                noPriceLink: !item.price,
             };
         });
     },

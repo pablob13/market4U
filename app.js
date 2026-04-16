@@ -1462,21 +1462,48 @@ const showMLBadge = (text, color = 'var(--accent-color)') => {
         el = document.createElement('div');
         el.id = 'mlLoadingBadge';
         el.style.cssText = [
-            'position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);',
-            'padding:0.5rem 1.4rem; border-radius:20px; font-size:0.85rem;',
-            'font-weight:600; z-index:9999; box-shadow:0 4px 20px rgba(0,0,0,.15);',
-            'transition:background 0.3s, opacity 0.3s; color:white;',
+            'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);',
+            'display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 1rem;',
+            'z-index:9999; background: var(--bg-primary); padding: 2rem 3rem; border-radius: var(--radius-md);',
+            'box-shadow: 0 10px 40px rgba(0,0,0,0.15); border: 2px solid var(--border-color);',
+            'transition: opacity 0.3s; opacity: 1;'
         ].join('');
+        
+        el.innerHTML = `
+            <div style="position:relative; width: 64px; height: 64px; display:flex; align-items:center; justify-content:center;">
+                <div id="mlSpinnerRing" style="position:absolute; top:0; left:0; right:0; bottom:0; border: 3px solid var(--bg-secondary); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <i id="mlSpinnerIcon" data-lucide="shopping-cart" style="color: var(--text-primary); width: 28px; height: 28px;"></i>
+            </div>
+            <div id="mlLoadingText" style="font-weight: 600; color: var(--text-primary); font-size: 1rem; text-align:center;"></div>
+        `;
         document.body.appendChild(el);
     }
-    el.textContent = text;
-    el.style.background = color;
-    el.style.opacity = '1';
+    
+    // Limpiar el texto visual (quitar el rayo para verse más minimalista)
+    const cleanText = text.replace('⚡ ', '');
+    document.getElementById('mlLoadingText').textContent = cleanText;
+
+    // Estado éxito o completado
+    if (text.startsWith('✓') || color === '#10b981') {
+        document.getElementById('mlSpinnerRing').style.display = 'none';
+        document.getElementById('mlSpinnerIcon').setAttribute('data-lucide', 'check-circle');
+        document.getElementById('mlSpinnerIcon').style.color = 'var(--success)';
+        document.getElementById('mlLoadingText').style.color = 'var(--success)';
+        el.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    } else {
+        document.getElementById('mlSpinnerRing').style.display = 'block';
+        document.getElementById('mlSpinnerIcon').setAttribute('data-lucide', 'shopping-cart');
+        document.getElementById('mlSpinnerIcon').style.color = 'var(--accent-color)';
+        document.getElementById('mlLoadingText').style.color = 'var(--text-primary)';
+        el.style.borderColor = 'var(--border-color)';
+    }
+    lucide.createIcons();
 };
+
 const hideMLBadge = (delay = 0) => {
     const el = document.getElementById('mlLoadingBadge');
     if (!el) return;
-    if (delay > 0) setTimeout(() => el.remove(), delay);
+    if (delay > 0) setTimeout(() => { if(document.getElementById('mlLoadingBadge')) document.getElementById('mlLoadingBadge').remove() }, delay);
     else el.remove();
 };
 

@@ -1387,18 +1387,35 @@ document.getElementById('googleSigninBtn').addEventListener('click', async () =>
 closeProfileModal.addEventListener('click', () => profileModal.classList.remove('active'));
 profileModal.addEventListener('click', (e) => { if (e.target === profileModal) profileModal.classList.remove('active'); });
 logoutBtn.addEventListener('click', async () => {
-    if (AuthService.isReady()) await AuthService.signOut();
+    logoutBtn.innerText = 'Saliendo...';
+    logoutBtn.style.pointerEvents = 'none';
+    
+    try {
+        if (AuthService.isReady()) await AuthService.signOut();
+    } catch(err) {
+        console.warn('Error backend al cerrar sesión:', err);
+    }
+    
+    // Limpieza agresiva frontend
     user = null;
     favorites.clear();
     alerts = [];
     savedLists = [];
     cart = [];
     saveState();
+    
+    // Limpiar localStorage cache
+    Object.keys(localStorage).forEach(k => {
+        if(k.startsWith('supabase')) localStorage.removeItem(k);
+    });
+
     profileModal.classList.remove('active');
-    renderUserNav();
-    updateCartUI();
-    renderProducts(currentData);
     showToast('Sesión cerrada correctamente', 'info');
+    
+    // Recarga absoluta para garantizar estado limpio
+    setTimeout(() => {
+        window.location.href = window.location.pathname;
+    }, 400);
 });
 
 tabBtns.forEach(btn => {

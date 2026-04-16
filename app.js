@@ -168,24 +168,43 @@ const formatCurrency = (value) => {
 const mergeProducts = (products) => {
     const merged = [];
     
+    // Busca patrones amplios de súper: 3l, 500g, 18 rollos, 90 pañuelos, etc.
+    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|oz|pack|pz|pzas|piezas|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas|caja|cajas)/i;
+    // Buscar cantidades de piezas (12 pack, 6 botellas, etc)
+    const qtyRegex = /(?:([0-9]+)\s*(?:pack|botellas|latas|piezas|pz|pzas|x))/i;
+
     const extractSize = (title) => {
-        // Busca patrones amplios de súper: 3l, 500g, 18 rollos, 90 pañuelos, etc.
-        const match = title.toLowerCase().match(/([0-9.,]+)\s*(ml|l|lt|g|kg|oz|pack|pz|pzas|piezas|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas|caja|cajas)/);
-        return match ? match[0].replace(/\s/g, '') : null;
+        const match = title.toLowerCase().match(sizeRegex);
+        return match ? match[0].replace(/\s/g, '').replace('lt', 'l') : null;
+    };
+    
+    const extractQuantity = (title) => {
+        const match = title.toLowerCase().match(qtyRegex);
+        return match ? parseInt(match[1]) : 1; 
+    };
+
+    const getTokens = (title) => {
+        let clean = title.toLowerCase().replace(sizeRegex, ' ').replace(qtyRegex, ' ');
+        return clean.replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
     };
 
     for (const p of products) {
         const pSize = extractSize(p.title);
-        const pTokens = p.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
+        const pQty = extractQuantity(p.title);
+        const pTokens = getTokens(p.title);
         
         let foundMatch = null;
         for (const existing of merged) {
             const exSize = extractSize(existing.title);
+            const exQty = extractQuantity(existing.title);
             
-            // Regla estricta: Si ambos tienen un tamaño/volumen extraíble explícito y NO coinciden, jamás son el mismo producto.
+            // Regla estricta 1: Si difieren en volumen/tamaño empírico, NO se fusionan
             if (pSize && exSize && pSize !== exSize) continue;
+            
+            // Regla estricta 2: Si difieren en cantidad de piezas en el empaque, NO se fusionan
+            if (pQty !== exQty) continue;
 
-            const exTokens = existing.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
+            const exTokens = getTokens(existing.title);
             
             // Calculo de similitud: Intersección sobre la longitud mínima
             const intersection = pTokens.filter(t => exTokens.includes(t)).length;

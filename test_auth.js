@@ -1,0 +1,1 @@
+// Verify how onAuthChange maps

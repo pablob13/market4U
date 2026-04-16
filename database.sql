@@ -1,5 +1,5 @@
 -- =============================================
--- Market2U — Schema de Base de Datos (Supabase)
+-- Market4U — Schema de Base de Datos (Supabase)
 -- =============================================
 -- Instrucciones:
 -- 1. Ve a tu proyecto en supabase.com

@@ -1,5 +1,5 @@
 // =============================================
-// Market2U — Configuración de Servicios
+// Market4U — Configuración de Servicios
 // =============================================
 // INSTRUCCIONES:
 // 1. Crea un proyecto en https://supabase.com (gratis)
@@ -21,7 +21,7 @@ const CONFIG = {
     ML_ACCESS_TOKEN: 'APP_USR-3207441237450946-041512-796ab093f7eb1d0cb75e45972c41ff47-376188817',
 
     // --- APP ---
-    APP_NAME:      'Market2U',
+    APP_NAME:      'Market4U',
     APP_VERSION:   '2.0.0',
     IS_PRODUCTION: false,  // Cambia a true cuando despliegues en Vercel
 };

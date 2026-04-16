@@ -1,5 +1,5 @@
 // =============================================
-// Market2U — Capa de Servicios Backend
+// Market4U — Capa de Servicios Backend
 // =============================================
 // Maneja: Supabase Auth, DB queries, y API de Mercado Libre
 // =============================================
@@ -9,15 +9,15 @@ let _sb = null;
 
 const initSupabase = () => {
     if (typeof window.supabase === 'undefined') {
-        console.warn('[Market2U] Supabase SDK no cargado. Usando modo localStorage.');
+        console.warn('[Market4U] Supabase SDK no cargado. Usando modo localStorage.');
         return null;
     }
     if (!CONFIG.SUPABASE_URL.includes('supabase.co')) {
-        console.warn('[Market2U] Supabase no configurado. Completa config.js con tus credenciales.');
+        console.warn('[Market4U] Supabase no configurado. Completa config.js con tus credenciales.');
         return null;
     }
     _sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-    console.log('[Market2U] Supabase conectado ✓');
+    console.log('[Market4U] Supabase conectado ✓');
     return _sb;
 };
 

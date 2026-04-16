@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================
-# Market2U — Deploy Script para Supabase
+# Market4U — Deploy Script para Supabase
 # =============================================
 # Uso: ./deploy.sh <TU_ACCESS_TOKEN>
 # Obtén el token en: https://supabase.com/dashboard/account/tokens
@@ -18,7 +18,7 @@ if [ -z "$ACCESS_TOKEN" ]; then
     echo ""
     echo "👉 Sigue estos pasos:"
     echo "   1. Ve a: https://supabase.com/dashboard/account/tokens"
-    echo "   2. Genera un nuevo token con nombre 'Market2U CLI'"
+    echo "   2. Genera un nuevo token con nombre 'Market4U CLI'"
     echo "   3. Copia el token y ejecuta:"
     echo "      ./deploy.sh sbp_xxxxxxxxxxxxxxxxxxxx"
     echo ""
@@ -26,7 +26,7 @@ if [ -z "$ACCESS_TOKEN" ]; then
 fi
 
 echo ""
-echo "🚀 Market2U — Iniciando deploy en Supabase..."
+echo "🚀 Market4U — Iniciando deploy en Supabase..."
 echo "   Proyecto: $PROJECT_REF"
 echo ""
 

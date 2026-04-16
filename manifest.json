@@ -1,6 +1,6 @@
 {
-  "name": "Market2U - Comparador de Supermercados",
-  "short_name": "Market2U",
+  "name": "Market4U - Comparador de Supermercados",
+  "short_name": "Market4U",
   "description": "Compara precios entre supermercados y encuentra las mejores ofertas",
   "start_url": "./index.html",
   "display": "standalone",

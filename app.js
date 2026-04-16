@@ -1,5 +1,5 @@
 // Usamos variables globales desde mockData.js ya que estamos corriendo sin servidor
-console.log('%c✅ Market2U app.js v2 cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
+console.log('%c✅ Market4U app.js v2 cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
 console.log('MLService disponible:', typeof MLService !== 'undefined');
 console.log('CONFIG.ML_SEARCH_URL:', typeof CONFIG !== 'undefined' ? CONFIG.ML_SEARCH_URL : 'CONFIG no definido');
 
@@ -89,7 +89,7 @@ let currentPage = 1;
 let mockNotifications = [
     { id: 1, title: '¡Alerta de Precio Cumplida!', body: 'El Papel Pétalo bajó un 15% en HEB. Está en $65.00.', time: 'Hace 5 min', unread: true },
     { id: 2, title: 'Promoción 3x2 Detectada', body: 'Soriana acaba de lanzar 3x2 en Café Nescafé Soluble.', time: 'Hace 2 horas', unread: true },
-    { id: 3, title: 'Bienvenido a Market2U', body: 'Tu cuenta y pre-configuración se han cargado exitosamente.', time: 'Ayer', unread: false }
+    { id: 3, title: 'Bienvenido a Market4U', body: 'Tu cuenta y pre-configuración se han cargado exitosamente.', time: 'Ayer', unread: false }
 ];
 
 // State Persistence Manager
@@ -102,11 +102,11 @@ const saveState = () => {
         alerts,
         addresses
     };
-    localStorage.setItem('market2u_state', JSON.stringify(data));
+    localStorage.setItem('market4u_state', JSON.stringify(data));
 };
 
 const loadState = () => {
-    const saved = localStorage.getItem('market2u_state');
+    const saved = localStorage.getItem('market4u_state');
     if (saved) {
         try {
             const data = JSON.parse(saved);
@@ -1364,7 +1364,7 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
             saveState();
             loginModal.classList.remove('active');
             renderUserNav();
-            showToast(`¡Bienvenido a Market2U, ${name}!`, 'success');
+            showToast(`¡Bienvenido a Market4U, ${name}!`, 'success');
         }
     } else {
         setAuthLoading('signupBtn', 'signupBtnText', 'signupBtnSpinner', false);
@@ -1749,7 +1749,7 @@ renderNotifications();
         saveState();
         renderUserNav();
         await syncListsFromSupabase();
-        console.log('[Market2U] Sesión restaurada:', user.name);
+        console.log('[Market4U] Sesión restaurada:', user.name);
     }
 })();
 
@@ -1757,9 +1757,9 @@ renderNotifications();
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then(reg => {
-            console.log('[Market2U PWA] Service Worker registrado:', reg.scope);
+            console.log('[Market4U PWA] Service Worker registrado:', reg.scope);
         }).catch(err => {
-            console.warn('[Market2U PWA] Sin SW (requiere HTTPS o localhost):', err.message);
+            console.warn('[Market4U PWA] Sin SW (requiere HTTPS o localhost):', err.message);
         });
     });
 }

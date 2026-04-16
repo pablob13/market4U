@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================
-# Market2U — Setup de Credenciales ML en Supabase
+# Market4U — Setup de Credenciales ML en Supabase
 # USO: bash setup-ml-credentials.sh <CLIENT_ID> <CLIENT_SECRET>
 # =============================================
 
@@ -20,7 +20,7 @@ if [ -z "$ML_CLIENT_ID" ] || [ -z "$ML_CLIENT_SECRET" ]; then
 fi
 
 echo "======================================="
-echo "  Market2U — Configurando ML en Supabase"
+echo "  Market4U — Configurando ML en Supabase"
 echo "======================================="
 echo ""
 

@@ -185,6 +185,7 @@ const mergeProducts = (products) => {
 
     const getTokens = (title) => {
         let clean = title.toLowerCase().replace(sizeRegex, ' ').replace(qtyRegex, ' ');
+        clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         return clean.replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
     };
 
@@ -231,8 +232,21 @@ const mergeProducts = (products) => {
 // Process Data to find best pricing
 const processProducts = (productList) => {
     return productList.map(item => {
-        // Manejar precio null (productos de ML sin buy_box)
-        const sortedOffers = [...item.offers].sort((a, b) => {
+        // Deduplicate multiple variants from the same store (pick cheapest)
+        const storeMap = new Map();
+        for (const o of item.offers) {
+            const currentTotal = (o.price ?? Infinity) + (o.shipping ?? 0);
+            if (!storeMap.has(o.store)) {
+                storeMap.set(o.store, { raw: o, total: currentTotal });
+            } else {
+                if (currentTotal < storeMap.get(o.store).total) {
+                    storeMap.set(o.store, { raw: o, total: currentTotal });
+                }
+            }
+        }
+        const uniqueOffers = Array.from(storeMap.values()).map(x => x.raw);
+
+        const sortedOffers = uniqueOffers.sort((a, b) => {
             const totalA = (a.price ?? Infinity) + (a.shipping ?? 0);
             const totalB = (b.price ?? Infinity) + (b.shipping ?? 0);
             return totalA - totalB;

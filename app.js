@@ -84,6 +84,7 @@ let currentAlertProductId = null;
 let activeTab = 'listas'; // Modificado para que sea la primera pestaña
 let currentOffset = 0;
 let currentSearchLimit = 48;
+let currentPage = 1;
 
 let mockNotifications = [
     { id: 1, title: '¡Alerta de Precio Cumplida!', body: 'El Papel Pétalo bajó un 15% en HEB. Está en $65.00.', time: 'Hace 5 min', unread: true },
@@ -480,7 +481,7 @@ const renderProfileTab = () => {
 const renderProducts = (data) => {
     resultsGrid.innerHTML = '';
     
-    const displayData = data.map(product => {
+    let displayData = data.map(product => {
         let sorted = product.sortedOffers;
         if(activeStoreFilters.size > 0) {
             sorted = product.sortedOffers.filter(o => activeStoreFilters.has(o.store));
@@ -488,6 +489,9 @@ const renderProducts = (data) => {
         if(sorted.length === 0) return null;
         return { ...product, displayBestOffer: sorted[0] };
     }).filter(p => p !== null);
+
+    const totalCalculated = displayData.length;
+    displayData = displayData.slice((currentPage - 1) * currentSearchLimit, currentPage * currentSearchLimit);
 
     if (displayData.length === 0) {
         resultsGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-tertiary);">No se encontraron productos en las tiendas seleccionadas.</p>';
@@ -562,19 +566,53 @@ const renderProducts = (data) => {
         resultsGrid.appendChild(card);
     });
 
-    // Add Load More Button at the end of the grid if there are any results
-    if (displayData.length > 0 && typeof searchInput !== 'undefined') {
+    // Add True Pagination Controls at the end of the grid
+    if (typeof searchInput !== 'undefined') {
         const q = searchInput.value.toLowerCase().trim();
         if (q.length >= 3) {
+            const hasMoreLocal = (currentPage * currentSearchLimit) < totalCalculated;
+            
             const btnContainer = document.createElement('div');
-            btnContainer.style.cssText = "grid-column: 1/-1; display:flex; justify-content:center; padding: 2rem 0;";
-            btnContainer.innerHTML = `<button id="loadMoreBtn" class="btn-primary" style="padding: 0.8rem 2rem; border-radius: 30px; font-weight:600; cursor:pointer;">Cargar más resultados <i data-lucide="chevron-down" style="width:20px; vertical-align:middle; margin-left:8px;"></i></button>`;
+            btnContainer.style.cssText = "grid-column: 1/-1; display:flex; justify-content:center; align-items:center; gap: 1rem; padding: 2rem 0;";
+            
+            let html = ``;
+            if (currentPage > 1) {
+                html += `<button class="btn-outline" onclick="window.prevPage()" style="padding: 0.6rem 1.5rem; border-radius: 20px; font-weight:600;"><i data-lucide="chevron-left" style="width:18px; vertical-align:middle; margin-right:4px;"></i> Anterior</button>`;
+            }
+            
+            html += `<span style="font-weight:bold; color:var(--text-secondary);">Página ${currentPage}</span>`;
+            
+            // We always show Next if there's any data, because our backend might have more.
+            // But if displayData is exactly 0 and it's not page 1, maybe we hide Next.
+            if (displayData.length > 0) {
+                 html += `<button class="btn-primary" onclick="window.nextPage()" style="padding: 0.6rem 1.5rem; border-radius: 20px; font-weight:600;">Siguiente <i data-lucide="chevron-right" style="width:18px; vertical-align:middle; margin-left:4px;"></i></button>`;
+            }
+            
+            btnContainer.innerHTML = html;
             resultsGrid.appendChild(btnContainer);
             
-            document.getElementById('loadMoreBtn').addEventListener('click', () => {
-                currentOffset += currentSearchLimit; // Avanzar offset
-                runMLSearch(q, true); // Pasar isPagination = true
-            });
+            window.prevPage = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    applyFilters();
+                    document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
+                }
+            };
+            
+            window.nextPage = () => {
+                const hasMoreLocal = (currentPage * currentSearchLimit) < totalCalculated;
+                currentPage++;
+                if (hasMoreLocal) {
+                    // Ya tenemos los datos en memoria, solo re-renderizamos.
+                    applyFilters();
+                    document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    // No tenemos los datos, llamamos a Vercel para expandir allData
+                    currentOffset += currentSearchLimit; 
+                    runMLSearch(q, true);
+                    document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
+                }
+            };
         }
     }
     
@@ -1413,6 +1451,7 @@ const applyFilters = () => {
         clearTimeout(mlSearchTimeout);
         lastMLQuery = '';  // reset para permitir re-búsqueda al cambiar query
         currentOffset = 0;
+        currentPage = 1;
         mlSearchTimeout = setTimeout(() => runMLSearch(query, false), 700);
     } else {
         hideMLBadge();
@@ -1426,6 +1465,7 @@ searchButton.addEventListener('click', () => {
     isSearchingML = false;   // forzar re-búsqueda aunque haya una en curso
     lastMLQuery   = '';      // forzar re-búsqueda aunque sea la misma query
     currentOffset = 0;
+    currentPage = 1;
 
     applyFilters();
     document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });

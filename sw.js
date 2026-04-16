@@ -1,4 +1,4 @@
-const CACHE_NAME = 'market4u-v1';
+const CACHE_NAME = 'market4u-v2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

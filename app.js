@@ -1,5 +1,5 @@
 // Usamos variables globales desde mockData.js ya que estamos corriendo sin servidor
-console.log('%c✅ Market4U app.js v2 cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
+console.log('%c✅ Market4U app.js v3 cache-busted cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
 console.log('MLService disponible:', typeof MLService !== 'undefined');
 console.log('CONFIG.ML_SEARCH_URL:', typeof CONFIG !== 'undefined' ? CONFIG.ML_SEARCH_URL : 'CONFIG no definido');
 
@@ -566,7 +566,7 @@ const renderProducts = (data) => {
     displayData.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
-        const bestStore = stores[product.displayBestOffer.store];
+        const bestStore = stores[product.displayBestOffer.store] || { name: product.displayBestOffer.store, logo: '?', color: '#fff', bgColor: '#999' };
 
         const isFav = favorites.has(product.id);
         const isAlert = alerts.some(a => a.productId === product.id);
@@ -611,7 +611,7 @@ const renderProducts = (data) => {
                                 ? `<span class="best-price">${formatCurrency(product.displayBestOffer.price)}</span>
                                    <div style="display:flex; gap:0.25rem;">
                                       ${product.sortedOffers.slice(0,3).map(o => {
-                                         const s = stores[o.store];
+                                         const s = stores[o.store] || { name: o.store, logo: '?', color: '#666', bgColor: '#eee' };
                                          if(!s) return '';
                                          return `<div class="store-logo-small" title="${formatCurrency(o.price)}" style="background-color: ${s.bgColor}; color: ${s.color}; font-size:0.7rem; width:22px; height:22px;">${s.logo}</div>`;
                                       }).join('')}
@@ -883,196 +883,208 @@ saveListBtn.addEventListener('click', async () => {
 
 /* --- SINGLE PRODUCT MODAL --- */
 window.openProductModal = async (id, tab = 'stores') => {
-    const product = allData.find(x => x.id === id);
-    if(!product) return;
-    
-    const tabsHTML = `
-        <div class="pdp-tabs-container">
-            <button class="pdp-tab-btn ${tab === 'stores' ? 'active' : ''}" onclick="openProductModal('${id}', 'stores')"><i data-lucide="store" style="width:16px; margin-right:4px;"></i> Comparar Tiendas</button>
-            <button class="pdp-tab-btn ${tab === 'brands' ? 'active' : ''}" onclick="openProductModal('${id}', 'brands')"><i data-lucide="tags" style="width:16px; margin-right:4px;"></i> Comparar Marcas</button>
-        </div>
-    `;
-
-    let dynamicContentHTML = '';
-
-    if (tab === 'stores') {
-        const tableRows = product.sortedOffers.map((offer, index) => {
-            const store = stores[offer.store];
-            const isBest = index === 0;
-            const total = offer.price + offer.shipping;
-            const hasPromoOffer = offer.list_price && offer.list_price > offer.price;
-            const discountPctOffer = hasPromoOffer ? Math.round((1 - offer.price / offer.list_price) * 100) : 0;
-            
-            return `
-                <tr class="${isBest ? 'best-row' : ''}">
-                    <td>
-                        <div class="store-cell">
-                            <div class="store-badge" style="background-color: ${store.bgColor}; color: ${store.color}">${store.logo}</div>
-                            ${store.name}
-                        </div>
-                    </td>
-                    <td class="price-cell">
-                        ${hasPromoOffer ? `<span style="display:block; font-size:0.7rem; color:var(--text-tertiary); text-decoration:line-through; line-height:1;">${formatCurrency(offer.list_price)}</span>` : ''}
-                        <div style="display:flex; align-items:center; gap:0.3rem;">
-                            <span>${formatCurrency(offer.price)}</span>
-                            ${hasPromoOffer ? `<span style="font-size:0.7rem; background:#cc0000; color:white; padding:1px 4px; border-radius:3px; font-weight:bold;">-${discountPctOffer}%</span>` : ''}
-                        </div>
-                    </td>
-                    <td class="shipping-cell">${offer.shipping === 0 ? '<span style="color:var(--success); font-weight:600;">Gratis</span>' : formatCurrency(offer.shipping)}</td>
-                    <td class="delivery-cell">${offer.delivery}</td>
-                    <td style="font-weight: 600;">${formatCurrency(total)}</td>
-                    <td style="text-align: right;"><button onclick="startRedirect('${offer.store}', false)" class="btn-goto ${!isBest ? 'outline' : ''}" style="border-radius:var(--radius-sm); border: ${isBest ? 'none' : '1px solid var(--border-color)'}; cursor: pointer;">Ir a Tienda</button></td>
-                </tr>
-            `;
-        }).join('');
-        
-        const curP = product.bestOffer.price;
-        let vals = [curP, curP, curP, curP];
-        
-        if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
-            const rawHistory = await MLService.getRealHistory(product.id);
-            if (rawHistory && rawHistory.length > 0) {
-                // Filter specifically for the history of the winning store
-                const storeHistory = rawHistory.filter(h => h.store_id === product.bestOffer.store);
-                if (storeHistory.length > 0) {
-                    const priceStamps = Array.from(new Set(storeHistory.map(h => h.price)));
-                    vals[3] = curP;
-                    vals[2] = priceStamps[priceStamps.length - 1] || curP;
-                    vals[1] = priceStamps[priceStamps.length - 2] || vals[2];
-                    vals[0] = priceStamps[priceStamps.length - 3] || vals[1];
-                }
-            }
+    console.info('MODAL CLICK INTERCEPTED! KICKING OFF FOR ID:', id);
+    try {
+        const product = allData.find(x => x.id === id || String(x.id) === String(id));
+        if(!product) {
+            alert('CRITICAL MATCH ERROR: Producto no encontrado en memoria. ID buscado: [' + id + ']. Total en DB actual: ' + allData.length);
+            return;
         }
         
-        const maxV = Math.max(...vals) * 1.05;
-        const minV = Math.min(...vals) * 0.90;
-        const getY = (v) => (maxV === minV) ? 85 : 85 - ((v - minV) / (maxV - minV)) * 65;
-        const xCoords = [25, 108, 191, 275];
-        const yCoords = vals.map(getY);
-        const linePoints = `${xCoords[0]},${yCoords[0]} ${xCoords[1]},${yCoords[1]} ${xCoords[2]},${yCoords[2]} ${xCoords[3]},${yCoords[3]}`;
-        const areaPoints = `${linePoints} ${xCoords[3]},130 ${xCoords[0]},130`;
-        
-        dynamicContentHTML = `
-            <div class="compare-table-container" style="box-shadow:none; border: 1px solid var(--border-color); margin-bottom: 2rem;">
-                <table class="compare-table">
-                    <thead><tr><th>Tienda</th><th>Precio</th><th>Envío</th><th>Entrega</th><th>Total</th><th></th></tr></thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
+        const tabsHTML = `
+            <div class="pdp-tabs-container">
+                <button class="pdp-tab-btn ${tab === 'stores' ? 'active' : ''}" onclick="openProductModal('${id}', 'stores')"><i data-lucide="store" style="width:16px; margin-right:4px;"></i> Comparar Tiendas</button>
+                <button class="pdp-tab-btn ${tab === 'brands' ? 'active' : ''}" onclick="openProductModal('${id}', 'brands')"><i data-lucide="tags" style="width:16px; margin-right:4px;"></i> Comparar Marcas</button>
             </div>
+        `;
+
+        let dynamicContentHTML = '';
+
+        if (tab === 'stores') {
+            const tableRows = product.sortedOffers.map((offer, index) => {
+                const store = stores[offer.store] || { name: offer.store, logo: '?', color: '#fff', bgColor: '#999' };
+                const isBest = index === 0;
+                const total = offer.price + offer.shipping;
+                const hasPromoOffer = offer.list_price && offer.list_price > offer.price;
+                const discountPctOffer = hasPromoOffer ? Math.round((1 - offer.price / offer.list_price) * 100) : 0;
+                
+                return `
+                    <tr class="${isBest ? 'best-row' : ''}">
+                        <td>
+                            <div class="store-cell">
+                                <div class="store-badge" style="background-color: ${store.bgColor}; color: ${store.color}">${store.logo}</div>
+                                ${store.name}
+                            </div>
+                        </td>
+                        <td class="price-cell">
+                            ${hasPromoOffer ? `<span style="display:block; font-size:0.7rem; color:var(--text-tertiary); text-decoration:line-through; line-height:1;">${formatCurrency(offer.list_price)}</span>` : ''}
+                            <div style="display:flex; align-items:center; gap:0.3rem;">
+                                <span>${formatCurrency(offer.price)}</span>
+                                ${hasPromoOffer ? `<span style="font-size:0.7rem; background:#cc0000; color:white; padding:1px 4px; border-radius:3px; font-weight:bold;">-${discountPctOffer}%</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="shipping-cell">${offer.shipping === 0 ? '<span style="color:var(--success); font-weight:600;">Gratis</span>' : formatCurrency(offer.shipping)}</td>
+                        <td class="delivery-cell">${offer.delivery}</td>
+                        <td style="font-weight: 600;">${formatCurrency(total)}</td>
+                        <td style="text-align: right;"><button onclick="startRedirect('${offer.store}', false)" class="btn-goto ${!isBest ? 'outline' : ''}" style="border-radius:var(--radius-sm); border: ${isBest ? 'none' : '1px solid var(--border-color)'}; cursor: pointer;">Ir a Tienda</button></td>
+                    </tr>
+                `;
+            }).join('');
             
-            <div class="price-chart-container" style="margin-top: 0;">
-                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i data-lucide="trending-down" style="color:var(--success); width:18px;"></i> Historial Analítico (En Vivo)</h3>
-                <p style="font-size: 0.85rem; color: var(--text-secondary);">El precio actual es tu ventana histórica perfecta para comprar.</p>
-                <div style="position:relative; width: 100%; max-width: 480px; margin: 2rem auto 0; padding-bottom: 1rem;">
-                    <svg viewBox="0 0 300 135" style="width: 100%; display:block; overflow: visible;">
-                        <defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--success)" stop-opacity="0.4"></stop><stop offset="100%" stop-color="var(--success)" stop-opacity="0.0"></stop></linearGradient></defs>
-                        <polygon points="${areaPoints}" fill="url(#areaGradient)"></polygon>
-                        <polyline points="${linePoints}" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                        ${vals.map((v, i) => `
-                            <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="${i === 3 ? '4.5' : '3.5'}" fill="var(--bg-primary)" stroke="var(--success)" stroke-width="2"></circle>
-                            <text x="${xCoords[i]}" y="${yCoords[i] - 12}" text-anchor="middle" font-size="9" fill="var(--text-primary)" font-weight="600" style="font-family: inherit;">$${Math.floor(v)}</text>
-                            <text x="${xCoords[i]}" y="${125}" text-anchor="middle" font-size="9" fill="${i === 3 ? 'var(--text-primary)' : 'var(--text-secondary)'}" font-weight="${i === 3 ? '600' : '400'}" style="font-family: inherit;">${['Ene', 'Feb', 'Mar', 'Hoy'][i]}</text>
+            const curP = product.bestOffer.price;
+            let vals = [curP, curP, curP, curP];
+            
+            if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
+                // Promise race to prevent total freeze if Supabase hangs on auth locks
+                const rawHistory = await Promise.race([
+                    MLService.getRealHistory(product.id),
+                    new Promise(resolve => setTimeout(() => resolve(null), 1500))
+                ]);
+                if (rawHistory && rawHistory.length > 0) {
+                    // Filter specifically for the history of the winning store
+                    const storeHistory = rawHistory.filter(h => h.store_id === product.bestOffer.store);
+                    if (storeHistory.length > 0) {
+                        const priceStamps = Array.from(new Set(storeHistory.map(h => h.price)));
+                        vals[3] = curP;
+                        vals[2] = priceStamps[priceStamps.length - 1] || curP;
+                        vals[1] = priceStamps[priceStamps.length - 2] || vals[2];
+                        vals[0] = priceStamps[priceStamps.length - 3] || vals[1];
+                    }
+                }
+            }
+            
+            const maxV = Math.max(...vals) * 1.05;
+            const minV = Math.min(...vals) * 0.90;
+            const getY = (v) => (maxV === minV) ? 85 : 85 - ((v - minV) / (maxV - minV)) * 65;
+            const xCoords = [25, 108, 191, 275];
+            const yCoords = vals.map(getY);
+            const linePoints = `${xCoords[0]},${yCoords[0]} ${xCoords[1]},${yCoords[1]} ${xCoords[2]},${yCoords[2]} ${xCoords[3]},${yCoords[3]}`;
+            const areaPoints = `${linePoints} ${xCoords[3]},130 ${xCoords[0]},130`;
+            
+            dynamicContentHTML = `
+                <div class="compare-table-container" style="box-shadow:none; border: 1px solid var(--border-color); margin-bottom: 2rem;">
+                    <table class="compare-table">
+                        <thead><tr><th>Tienda</th><th>Precio</th><th>Envío</th><th>Entrega</th><th>Total</th><th></th></tr></thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+                
+                <div class="price-chart-container" style="margin-top: 0;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i data-lucide="trending-down" style="color:var(--success); width:18px;"></i> Historial Analítico (En Vivo)</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">El precio actual es tu ventana histórica perfecta para comprar.</p>
+                    <div style="position:relative; width: 100%; max-width: 480px; margin: 2rem auto 0; padding-bottom: 1rem;">
+                        <svg viewBox="0 0 300 135" style="width: 100%; display:block; overflow: visible;">
+                            <defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--success)" stop-opacity="0.4"></stop><stop offset="100%" stop-color="var(--success)" stop-opacity="0.0"></stop></linearGradient></defs>
+                            <polygon points="${areaPoints}" fill="url(#areaGradient)"></polygon>
+                            <polyline points="${linePoints}" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                            ${vals.map((v, i) => `
+                                <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="${i === 3 ? '4.5' : '3.5'}" fill="var(--bg-primary)" stroke="var(--success)" stroke-width="2"></circle>
+                                <text x="${xCoords[i]}" y="${yCoords[i] - 12}" text-anchor="middle" font-size="9" fill="var(--text-primary)" font-weight="600" style="font-family: inherit;">$${Math.floor(v)}</text>
+                                <text x="${xCoords[i]}" y="${125}" text-anchor="middle" font-size="9" fill="${i === 3 ? 'var(--text-primary)' : 'var(--text-secondary)'}" font-weight="${i === 3 ? '600' : '400'}" style="font-family: inherit;">${['Ene', 'Feb', 'Mar', 'Hoy'][i]}</text>
+                            `).join('')}
+                        </svg>
+                    </div>
+                </div>
+            `;
+        } else if (tab === 'brands') {
+            const competitors = allData.filter(p => p.category === product.category && p.id !== product.id);
+            
+            if (competitors.length === 0) {
+                dynamicContentHTML = `<p style="padding: 2rem; text-align: center; color: var(--text-tertiary); background: var(--bg-secondary); border-radius: var(--radius-md);">No encontramos marcas competidoras para esta categoría actualmente.</p>`;
+            } else {
+                dynamicContentHTML = `
+                    <div class="brand-compare-grid">
+                        ${competitors.map(comp => `
+                            <div class="product-card" style="margin:0; box-shadow:none; border:1px solid var(--border-color);">
+                                <div class="product-image-container" onclick="openProductModal('${comp.id}', 'brands')">
+                                    <img src="${comp.image}" alt="${comp.title}">
+                                </div>
+                                <div class="product-info" style="padding: 1rem;">
+                                    <h3 class="product-title" style="font-size: 0.95rem;">${comp.title}</h3>
+                                    <div class="product-price">
+                                        <span class="price-amount">${formatCurrency(comp.bestOffer.price)}</span>
+                                    </div>
+                                    <button onclick="openProductModal('${comp.id}', 'brands')" class="btn-primary" style="width:100%; margin-top:0.5rem; justify-content:center; padding: 0.5rem; font-size:0.85rem;">Analizar Producto</button>
+                                    
+                                    <details style="margin-top: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-secondary);">
+                                        <summary style="padding: 0.5rem; font-size: 0.75rem; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; outline: none;">
+                                            Ver Precios por Tienda <span style="color:var(--text-tertiary); font-size:0.7rem;">&#9662;</span>
+                                        </summary>
+                                        <ul style="list-style: none; padding: 0; margin: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color);">
+                                            ${comp.sortedOffers.map(coff => {
+                                                const hasPromoCoff = coff.list_price && coff.list_price > coff.price;
+                                                const coffDiscount = hasPromoCoff ? Math.round((1 - coff.price / coff.list_price) * 100) : 0;
+                                                return `
+                                                <li style="padding: 0.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); font-size: 0.75rem;">
+                                                    <div style="display:flex; align-items:center; gap:0.25rem;">
+                                                        <div style="width:12px; height:12px; border-radius:2px; background:${(stores[coff.store]||{bgColor:'#999'}).bgColor};"></div>
+                                                        ${(stores[coff.store]||{name:coff.store}).name}
+                                                    </div>
+                                                    <div style="display:flex; align-items:center; gap:0.3rem;">
+                                                        ${hasPromoCoff ? `<span style="text-decoration:line-through; color:var(--text-tertiary); font-size:0.65rem;">${formatCurrency(coff.list_price)}</span> <span style="background:#cc0000; color:white; padding:1px 3px; border-radius:2px; font-weight:bold; font-size:0.65rem;">-${coffDiscount}%</span>` : ''}
+                                                        <span style="font-weight:600;">${formatCurrency(coff.price)}</span>
+                                                    </div>
+                                                </li>
+                                                `;
+                                            }).join('')}
+                                        </ul>
+                                    </details>
+                                </div>
+                            </div>
                         `).join('')}
-                    </svg>
+                    </div>
+                `;
+            }
+        }
+
+            const hasPromoModal = product.bestOffer.list_price && product.bestOffer.list_price > product.bestOffer.price;
+            const discountPctModal = hasPromoModal ? Math.round((1 - product.bestOffer.price / product.bestOffer.list_price) * 100) : 0;
+
+        pdpContentBody.innerHTML = `
+            <div class="pdp-container">
+                <div class="pdp-image-col" style="position:relative;">
+                    ${hasPromoModal ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.85rem; font-weight:700; padding:4px 10px; border-radius:4px; z-index:5;">-${discountPctModal}%</span>` : ''}
+                    <img src="${product.image}" alt="${product.title}">
+                    <div class="pdp-desc-box">
+                        <h3><i data-lucide="info" style="width:18px;"></i> Detalles del Producto</h3>
+                        <p>${product.description || 'Descripción del producto no disponible.'}</p>
+                    </div>
+                </div>
+                
+                <div class="pdp-info-col">
+                    <span class="product-category" style="margin-bottom:0.5rem; display:inline-block;">${product.category}</span>
+                    <h1 class="pdp-title">${product.title}</h1>
+                    
+                    <div class="pdp-action-bar" style="display:flex; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 2rem; align-items: stretch;">
+                        
+                        <div style="display:flex; align-items:center; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-primary);">
+                            <button onclick="const q = document.getElementById('pdpQty'); q.value = Math.max(1, parseInt(q.value)-1);" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&minus;</button>
+                            <input id="pdpQty" type="number" value="1" min="1" style="width: 40px; border:none; background:none; text-align:center; font-weight:600; color:var(--text-primary); outline:none; font-family:inherit; -webkit-appearance: none; margin: 0;" onchange="this.value = Math.max(1, parseInt(this.value) || 1)">
+                            <button onclick="const q = document.getElementById('pdpQty'); q.value = parseInt(q.value)+1;" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&plus;</button>
+                        </div>
+
+                        <button onclick="addToCart('${product.id}', document.getElementById('pdpQty').value)" class="btn-primary" style="flex:1; padding: 0.75rem; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; display:flex; align-items:center; justify-content:center; gap: 0.5rem; font-size:1rem;">
+                            <i data-lucide="shopping-cart"></i> Añadir al Carrito
+                        </button>
+                        <button onclick="toggleFavorite(event, '${product.id}')" class="btn-outline" style="padding: 0.75rem; border-radius: var(--radius-sm); cursor:pointer;"><i data-lucide="heart" fill="${favorites.has(product.id) ? 'currentColor' : 'none'}" color="${favorites.has(product.id) ? 'var(--danger)' : 'currentColor'}"></i></button>
+                        <button onclick="toggleAlert(event, '${product.id}')" class="btn-outline" style="padding: 0.75rem; border-radius: var(--radius-sm); cursor:pointer;"><i data-lucide="bell" fill="${alerts.some(a => a.productId === product.id) ? 'currentColor' : 'none'}" color="${alerts.some(a => a.productId === product.id) ? '#eab308' : 'currentColor'}"></i></button>
+                    </div>
+                    
+                    ${tabsHTML}
+                    ${dynamicContentHTML}
                 </div>
             </div>
         `;
-    } else if (tab === 'brands') {
-        const competitors = allData.filter(p => p.category === product.category && p.id !== product.id);
         
-        if (competitors.length === 0) {
-            dynamicContentHTML = `<p style="padding: 2rem; text-align: center; color: var(--text-tertiary); background: var(--bg-secondary); border-radius: var(--radius-md);">No encontramos marcas competidoras para esta categoría actualmente.</p>`;
-        } else {
-            dynamicContentHTML = `
-                <div class="brand-compare-grid">
-                    ${competitors.map(comp => `
-                        <div class="product-card" style="margin:0; box-shadow:none; border:1px solid var(--border-color);">
-                            <div class="product-image-container" onclick="openProductModal('${comp.id}', 'brands')">
-                                <img src="${comp.image}" alt="${comp.title}">
-                            </div>
-                            <div class="product-info" style="padding: 1rem;">
-                                <h3 class="product-title" style="font-size: 0.95rem;">${comp.title}</h3>
-                                <div class="product-price">
-                                    <span class="price-amount">${formatCurrency(comp.bestOffer.price)}</span>
-                                </div>
-                                <button onclick="openProductModal('${comp.id}', 'brands')" class="btn-primary" style="width:100%; margin-top:0.5rem; justify-content:center; padding: 0.5rem; font-size:0.85rem;">Analizar Producto</button>
-                                
-                                <details style="margin-top: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-secondary);">
-                                    <summary style="padding: 0.5rem; font-size: 0.75rem; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; outline: none;">
-                                        Ver Precios por Tienda <span style="color:var(--text-tertiary); font-size:0.7rem;">&#9662;</span>
-                                    </summary>
-                                    <ul style="list-style: none; padding: 0; margin: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color);">
-                                        ${comp.sortedOffers.map(coff => {
-                                            const hasPromoCoff = coff.list_price && coff.list_price > coff.price;
-                                            const coffDiscount = hasPromoCoff ? Math.round((1 - coff.price / coff.list_price) * 100) : 0;
-                                            return `
-                                            <li style="padding: 0.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); font-size: 0.75rem;">
-                                                <div style="display:flex; align-items:center; gap:0.25rem;">
-                                                    <div style="width:12px; height:12px; border-radius:2px; background:${stores[coff.store].bgColor};"></div>
-                                                    ${stores[coff.store].name}
-                                                </div>
-                                                <div style="display:flex; align-items:center; gap:0.3rem;">
-                                                    ${hasPromoCoff ? `<span style="text-decoration:line-through; color:var(--text-tertiary); font-size:0.65rem;">${formatCurrency(coff.list_price)}</span> <span style="background:#cc0000; color:white; padding:1px 3px; border-radius:2px; font-weight:bold; font-size:0.65rem;">-${coffDiscount}%</span>` : ''}
-                                                    <span style="font-weight:600;">${formatCurrency(coff.price)}</span>
-                                                </div>
-                                            </li>
-                                            `;
-                                        }).join('')}
-                                    </ul>
-                                </details>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
+        document.querySelector('.hero-section').style.display = 'none';
+        document.getElementById('mainCatalog').style.display = 'none';
+        pdpPage.classList.add('active');
+        
+        lucide.createIcons();
+        window.scrollTo(0,0);
+    } catch(e) {
+        alert('ERROR:' + e.message + ' ' + e.stack);
     }
-
-        const hasPromoModal = product.bestOffer.list_price && product.bestOffer.list_price > product.bestOffer.price;
-        const discountPctModal = hasPromoModal ? Math.round((1 - product.bestOffer.price / product.bestOffer.list_price) * 100) : 0;
-
-    pdpContentBody.innerHTML = `
-        <div class="pdp-container">
-            <div class="pdp-image-col" style="position:relative;">
-                ${hasPromoModal ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.85rem; font-weight:700; padding:4px 10px; border-radius:4px; z-index:5;">-${discountPctModal}%</span>` : ''}
-                <img src="${product.image}" alt="${product.title}">
-                <div class="pdp-desc-box">
-                    <h3><i data-lucide="info" style="width:18px;"></i> Detalles del Producto</h3>
-                    <p>${product.description || 'Descripción del producto no disponible.'}</p>
-                </div>
-            </div>
-            
-            <div class="pdp-info-col">
-                <span class="product-category" style="margin-bottom:0.5rem; display:inline-block;">${product.category}</span>
-                <h1 class="pdp-title">${product.title}</h1>
-                
-                <div class="pdp-action-bar" style="display:flex; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 2rem; align-items: stretch;">
-                    
-                    <div style="display:flex; align-items:center; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-primary);">
-                        <button onclick="const q = document.getElementById('pdpQty'); q.value = Math.max(1, parseInt(q.value)-1);" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&minus;</button>
-                        <input id="pdpQty" type="number" value="1" min="1" style="width: 40px; border:none; background:none; text-align:center; font-weight:600; color:var(--text-primary); outline:none; font-family:inherit; -webkit-appearance: none; margin: 0;" onchange="this.value = Math.max(1, parseInt(this.value) || 1)">
-                        <button onclick="const q = document.getElementById('pdpQty'); q.value = parseInt(q.value)+1;" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&plus;</button>
-                    </div>
-
-                    <button onclick="addToCart('${product.id}', document.getElementById('pdpQty').value)" class="btn-primary" style="flex:1; padding: 0.75rem; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; display:flex; align-items:center; justify-content:center; gap: 0.5rem; font-size:1rem;">
-                        <i data-lucide="shopping-cart"></i> Añadir al Carrito
-                    </button>
-                    <button onclick="toggleFavorite(event, '${product.id}')" class="btn-outline" style="padding: 0.75rem; border-radius: var(--radius-sm); cursor:pointer;"><i data-lucide="heart" fill="${favorites.has(product.id) ? 'currentColor' : 'none'}" color="${favorites.has(product.id) ? 'var(--danger)' : 'currentColor'}"></i></button>
-                    <button onclick="toggleAlert(event, '${product.id}')" class="btn-outline" style="padding: 0.75rem; border-radius: var(--radius-sm); cursor:pointer;"><i data-lucide="bell" fill="${alerts.some(a => a.productId === product.id) ? 'currentColor' : 'none'}" color="${alerts.some(a => a.productId === product.id) ? '#eab308' : 'currentColor'}"></i></button>
-                </div>
-                
-                ${tabsHTML}
-                ${dynamicContentHTML}
-            </div>
-        </div>
-    `;
-    
-    document.querySelector('.hero-section').style.display = 'none';
-    document.getElementById('mainCatalog').style.display = 'none';
-    pdpPage.classList.add('active');
-    
-    lucide.createIcons();
-    window.scrollTo(0,0);
 };
 
 /* --- REDIRECT LOGIC --- */
@@ -1536,9 +1548,16 @@ const runMLSearch = async (query, isPagination = false) => {
     showMLBadge(`⚡ Comparando en Market4U... ${isPagination ? '[Pagina ' + ((currentOffset/currentSearchLimit)+1) + ']' : ''}`);
 
     try {
-        const mlResults = await MLService.searchGeneral(query, currentSearchLimit, currentOffset);
+        const [mlResults, dbResults] = await Promise.all([
+            MLService.searchGeneral(query, currentSearchLimit, currentOffset),
+            ProductsService.search(query)
+        ]);
+        
+        let combinedQueue = [];
+        if (dbResults && dbResults.length > 0) combinedQueue = combinedQueue.concat(dbResults);
+        if (mlResults && mlResults.length > 0) combinedQueue = combinedQueue.concat(mlResults);
 
-        if (!mlResults || mlResults.length === 0) {
+        if (combinedQueue.length === 0) {
             hideMLBadge();
             // Si ya no hay resultados paginados, podríamos ocultar el botón
             const btn = document.getElementById('loadMoreBtn');
@@ -1551,7 +1570,7 @@ const runMLSearch = async (query, isPagination = false) => {
            allData = allData.filter(p => !p.id?.startsWith('sor_') && !p.id?.startsWith('che_'));
         }
 
-        const mergedScraped = mergeProducts(mlResults);
+        const mergedScraped = mergeProducts(combinedQueue);
         const processedML = processProducts(mergedScraped);
         
         // Log real-time prices natively into Supabase database

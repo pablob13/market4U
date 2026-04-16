@@ -512,12 +512,47 @@ const ProductsService = {
         const { data, error } = await _sb
             .from('products')
             .select(`
-                id, ml_id, title, category, image_url, brand,
+                id, ml_id, title, category, image_url, brand, description,
                 price_history(store_id, price, shipping, scraped_at)
             `)
             .textSearch('title', query, { type: 'plain', config: 'spanish' })
             .limit(20);
-        return error ? null : data;
+            
+        if (error || !data) return null;
+        
+        // Mapper to standardize Supabase output to mirror MercadoLibre schema expectations
+        return data.map(p => {
+            const offersArray = p.price_history && p.price_history.length > 0 ? 
+                p.price_history.map(ph => ({
+                    store: ph.store_id || 'chedraui',
+                    price: ph.price,
+                    shipping: ph.shipping || 0,
+                    delivery: 'Supermercado local',
+                    url: p.permalink || null
+                })) : [{
+                    store: 'desconocido',
+                    price: 0,
+                    shipping: 0,
+                    delivery: '',
+                    url: null
+                }];
+
+            const primaryOffer = offersArray[0];
+
+            return {
+                id: p.ml_id,
+                title: p.title,
+                price: primaryOffer.price,
+                thumbnail: p.image_url || 'https://via.placeholder.com/150',
+                seller: primaryOffer.store,
+                free_shipping: false,
+                brand: p.brand || '',
+                category_id: p.category || '',
+                description: p.description || '',
+                offers: offersArray,
+                source: primaryOffer.store
+            };
+        });
     }
 };
 

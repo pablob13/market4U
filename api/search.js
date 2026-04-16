@@ -36,15 +36,18 @@ module.exports = async function handler(req, res) {
             const pidMatch = block.match(/data-pid="([^"]+)"/);
             const pid = pidMatch ? pidMatch[1] : null;
             
-            const nameMatch = block.match(/class="link[^>]+>([^<]+)<\/a>/);
+            const nameMatch = block.match(/class="[^"]*link[^>]+>([^<]+)<\/a>/);
             const name = nameMatch ? nameMatch[1].trim() : null;
             
-            const priceMatch = block.match(/class="value"\s+content="([0-9.]+)"/);
+            const priceMatch = block.match(/class="[^"]*value[^"]*"\s+content="([0-9.]+)"/);
             const price = priceMatch ? parseFloat(priceMatch[1]) : null;
             
-            const imgMatch = block.match(/class="tile-image"\s+src="([^"]+)"/);
-            let img = imgMatch ? imgMatch[1] : null;
-            if (img && img.includes('?')) img = img.split('?')[0];
+            let img = null;
+            const imgMatch = block.match(/class="[^"]*tile-image[^"]*"\s+src="([^"]+)"/);
+            if (imgMatch) {
+               img = imgMatch[1];
+               if (img.includes('?')) img = img.split('?')[0];
+            }
             
             const urlMatch = block.match(/href="([^"]+)"/);
             const link = urlMatch ? 'https://www.soriana.com' + urlMatch[1] : null;
@@ -54,7 +57,7 @@ module.exports = async function handler(req, res) {
                     id: 'sor_' + pid,
                     title: name,
                     price: price,
-                    thumbnail: img,
+                    thumbnail: img || 'https://via.placeholder.com/150',
                     permalink: link,
                     free_shipping: false,
                     seller: 'Soriana',

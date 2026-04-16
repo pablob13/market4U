@@ -872,6 +872,9 @@ window.openProductModal = async (id, tab = 'stores') => {
             const store = stores[offer.store];
             const isBest = index === 0;
             const total = offer.price + offer.shipping;
+            const hasPromoOffer = offer.list_price && offer.list_price > offer.price;
+            const discountPctOffer = hasPromoOffer ? Math.round((1 - offer.price / offer.list_price) * 100) : 0;
+            
             return `
                 <tr class="${isBest ? 'best-row' : ''}">
                     <td>
@@ -880,7 +883,13 @@ window.openProductModal = async (id, tab = 'stores') => {
                             ${store.name}
                         </div>
                     </td>
-                    <td class="price-cell">${formatCurrency(offer.price)}</td>
+                    <td class="price-cell">
+                        ${hasPromoOffer ? `<span style="display:block; font-size:0.7rem; color:var(--text-tertiary); text-decoration:line-through; line-height:1;">${formatCurrency(offer.list_price)}</span>` : ''}
+                        <div style="display:flex; align-items:center; gap:0.3rem;">
+                            <span>${formatCurrency(offer.price)}</span>
+                            ${hasPromoOffer ? `<span style="font-size:0.7rem; background:#cc0000; color:white; padding:1px 4px; border-radius:3px; font-weight:bold;">-${discountPctOffer}%</span>` : ''}
+                        </div>
+                    </td>
                     <td class="shipping-cell">${offer.shipping === 0 ? '<span style="color:var(--success); font-weight:600;">Gratis</span>' : formatCurrency(offer.shipping)}</td>
                     <td class="delivery-cell">${offer.delivery}</td>
                     <td style="font-weight: 600;">${formatCurrency(total)}</td>
@@ -965,15 +974,22 @@ window.openProductModal = async (id, tab = 'stores') => {
                                         Ver Precios por Tienda <span style="color:var(--text-tertiary); font-size:0.7rem;">&#9662;</span>
                                     </summary>
                                     <ul style="list-style: none; padding: 0; margin: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color);">
-                                        ${comp.sortedOffers.map(coff => `
+                                        ${comp.sortedOffers.map(coff => {
+                                            const hasPromoCoff = coff.list_price && coff.list_price > coff.price;
+                                            const coffDiscount = hasPromoCoff ? Math.round((1 - coff.price / coff.list_price) * 100) : 0;
+                                            return `
                                             <li style="padding: 0.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); font-size: 0.75rem;">
                                                 <div style="display:flex; align-items:center; gap:0.25rem;">
                                                     <div style="width:12px; height:12px; border-radius:2px; background:${stores[coff.store].bgColor};"></div>
                                                     ${stores[coff.store].name}
                                                 </div>
-                                                <span style="font-weight:600;">${formatCurrency(coff.price)}</span>
+                                                <div style="display:flex; align-items:center; gap:0.3rem;">
+                                                    ${hasPromoCoff ? `<span style="text-decoration:line-through; color:var(--text-tertiary); font-size:0.65rem;">${formatCurrency(coff.list_price)}</span> <span style="background:#cc0000; color:white; padding:1px 3px; border-radius:2px; font-weight:bold; font-size:0.65rem;">-${coffDiscount}%</span>` : ''}
+                                                    <span style="font-weight:600;">${formatCurrency(coff.price)}</span>
+                                                </div>
                                             </li>
-                                        `).join('')}
+                                            `;
+                                        }).join('')}
                                     </ul>
                                 </details>
                             </div>

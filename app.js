@@ -164,29 +164,39 @@ const formatCurrency = (value) => {
 // Fuzzy Merging Algorithm for External Scraping
 const mergeProducts = (products) => {
     const merged = [];
+    
+    const extractSize = (title) => {
+        // Busca patrones como 3l, 600ml, 2.5 L, 12 pack, etc.
+        const match = title.toLowerCase().match(/([0-9.,]+)\s*(ml|l|lt|g|kg|oz|pack|pz|piezas)/);
+        return match ? match[0].replace(/\s/g, '') : null;
+    };
+
     for (const p of products) {
-        // Encontrar producto similar
+        const pSize = extractSize(p.title);
         const pTokens = p.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
         
         let foundMatch = null;
         for (const existing of merged) {
+            const exSize = extractSize(existing.title);
+            
+            // Regla estricta: Si ambos tienen un tamaño/volumen extraíble explícito y NO coinciden, jamás son el mismo producto.
+            if (pSize && exSize && pSize !== exSize) continue;
+
             const exTokens = existing.title.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
             
             // Calculo de Jaccard Similarity (Intersección / Unión)
             const intersection = pTokens.filter(t => exTokens.includes(t)).length;
             const union = new Set([...pTokens, ...exTokens]).size;
             
-            if (union > 0 && intersection / union > 0.45) { // 45% Overlap minimo para nombres largos como Refresco Coca-Cola vs Refresco Coca Cola Original
+            if (union > 0 && intersection / union >= 0.55) { // 55% Overlap minimo + validación de volumen
                 foundMatch = existing;
                 break;
             }
         }
         
         if (foundMatch) {
-            // Push any new offers onto the matched item's offers array
             foundMatch.offers.push(...p.offers);
         } else {
-            // Push a deep clone if no match found
             merged.push({ ...p, offers: [...p.offers] });
         }
     }

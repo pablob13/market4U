@@ -177,11 +177,12 @@ const MLService = {
                 category:    'General', // API scraper doesn't fetch category yet
                 image:       item.thumbnail,
                 description: `Disponible en ${item.seller}`,
-                bestOffer:   { price: item.price || 0, store: storeKey },
-                sortedOffers: [{ price: item.price || 0, store: storeKey, name: item.seller }],
+                bestOffer:   { price: item.price || 0, list_price: item.list_price || item.price || 0, store: storeKey },
+                sortedOffers: [{ price: item.price || 0, list_price: item.list_price || item.price || 0, store: storeKey, name: item.seller }],
                 offers: [{
                     store:    storeKey,
                     price:    item.price || 0,
+                    list_price: item.list_price || item.price || 0,
                     shipping: 0,
                     delivery: 'N/A',
                     url:      item.permalink,
@@ -301,6 +302,64 @@ const MLService = {
             };
         });
     },
+
+    savePriceHistory: async (products) => {
+        if (!_sb) return;
+        try {
+            // For analytical cleanliness, we only store the fully merged results
+            for (const p of products) {
+                if (!p.id) continue;
+                // Upsert product using ml_id as unique identifier
+                const { data: prodData, error: prodErr } = await _sb
+                    .from('products')
+                    .upsert({ ml_id: p.id, title: p.title, image_url: p.image || null, brand: p.brand || '' }, { onConflict: 'ml_id' })
+                    .select('id')
+                    .single();
+                
+                if (prodErr || !prodData) continue;
+                
+                // Insert price history for each unique offer branch
+                for (const o of p.offers) {
+                    if (!o.price || !o.store) continue;
+                    await _sb
+                        .from('price_history')
+                        .insert({
+                            product_id: prodData.id,
+                            store_id: o.store,
+                            price: o.price,
+                            shipping: o.shipping || 0,
+                            source_url: o.url || null
+                        });
+                }
+            }
+        } catch (e) {
+            console.error('[Supabase History Engine]', e);
+        }
+    },
+
+    getRealHistory: async (ml_id) => {
+        if (!_sb) return null;
+        try {
+            const { data: prodData } = await _sb
+                .from('products')
+                .select('id')
+                .eq('ml_id', ml_id)
+                .single();
+            
+            if (!prodData) return null;
+            
+            const { data: historyData } = await _sb
+                .from('price_history')
+                .select('store_id, price, scraped_at')
+                .eq('product_id', prodData.id)
+                .order('scraped_at', { ascending: true });
+                
+            return historyData;
+        } catch (e) {
+            console.error('[Supabase Query]', e);
+            return null;
+        }
+    }
 };
 
 // ---- LISTS SERVICE ---------------------------

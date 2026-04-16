@@ -64,12 +64,14 @@ const fetchChedraui = async (q, limit, offset) => {
             if (sellers.length === 0) continue;
             
             const price = sellers[0].commertialOffer?.Price;
+            const listPrice = sellers[0].commertialOffer?.ListPrice;
             if (!price) continue;
             
             results.push({
                 id: 'che_' + p.productId,
                 title: p.productName,
                 price: price,
+                list_price: listPrice,
                 thumbnail: (items[0].images?.[0]?.imageUrl) || 'https://via.placeholder.com/150',
                 permalink: p.linkText ? `https://www.chedraui.com.mx/p/${p.linkText}-${p.productId}` : null,
                 free_shipping: false,
@@ -104,12 +106,14 @@ const fetchHeb = async (q, limit, offset) => {
             if (sellers.length === 0) continue;
             
             const price = sellers[0].commertialOffer?.Price;
+            const listPrice = sellers[0].commertialOffer?.ListPrice;
             if (!price) continue;
             
             results.push({
                 id: 'heb_' + p.productId,
                 title: p.productName,
                 price: price,
+                list_price: listPrice,
                 thumbnail: (items[0].images?.[0]?.imageUrl) || 'https://via.placeholder.com/150',
                 permalink: p.linkText ? `https://www.heb.com.mx/${p.linkText}/p` : null,
                 free_shipping: false,

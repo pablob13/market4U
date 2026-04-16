@@ -543,9 +543,12 @@ const renderProducts = (data) => {
         const isFav = favorites.has(product.id);
         const isAlert = alerts.some(a => a.productId === product.id);
         
+        const hasPromo = product.displayBestOffer.list_price && product.displayBestOffer.list_price > product.displayBestOffer.price;
+        const discountPct = hasPromo ? Math.round((1 - product.displayBestOffer.price / product.displayBestOffer.list_price) * 100) : 0;
+        
         card.innerHTML = `
             <div class="product-image-container" onclick="openProductModal('${product.id}')">
-                <div class="product-actions-overlay">
+                <div class="product-actions-overlay" style="z-index: 10;">
                     <button class="icon-action-btn ${isFav ? 'active' : ''}" title="Favorito" onclick="toggleFavorite(event, '${product.id}')">
                         <i data-lucide="heart" style="width: 16px;"></i>
                     </button>
@@ -553,6 +556,7 @@ const renderProducts = (data) => {
                         <i data-lucide="bell" style="width: 16px;"></i>
                     </button>
                 </div>
+                ${hasPromo ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:4px; z-index:5;">-${discountPct}%</span>` : ''}
                 ${product.image
                     ? `<img src="${product.image}" alt="${product.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                        <div style="display:none; flex-direction:column; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg,#ffe600,#f5c500); color:#2d3277; font-weight:700; font-size:1.1rem; gap:4px;">
@@ -850,7 +854,7 @@ saveListBtn.addEventListener('click', async () => {
 });
 
 /* --- SINGLE PRODUCT MODAL --- */
-window.openProductModal = (id, tab = 'stores') => {
+window.openProductModal = async (id, tab = 'stores') => {
     const product = allData.find(x => x.id === id);
     if(!product) return;
     
@@ -886,10 +890,24 @@ window.openProductModal = (id, tab = 'stores') => {
         }).join('');
         
         const curP = product.bestOffer.price;
-        const vals = [curP * 1.18, curP * 1.05, curP * 1.10, curP];
-        const maxV = Math.max(...vals);
+        let vals = [curP, curP, curP, curP];
+        
+        if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
+            const rawHistory = await MLService.getRealHistory(product.id);
+            if (rawHistory && rawHistory.length > 0) {
+                const priceStamps = Array.from(new Set(rawHistory.map(h => h.price)));
+                if (priceStamps.length > 0) {
+                    vals[3] = curP;
+                    vals[2] = priceStamps[priceStamps.length - 1] || curP;
+                    vals[1] = priceStamps[priceStamps.length - 2] || vals[2];
+                    vals[0] = priceStamps[priceStamps.length - 3] || vals[1];
+                }
+            }
+        }
+        
+        const maxV = Math.max(...vals) * 1.05;
         const minV = Math.min(...vals) * 0.90;
-        const getY = (v) => 85 - ((v - minV) / (maxV - minV)) * 65;
+        const getY = (v) => (maxV === minV) ? 85 : 85 - ((v - minV) / (maxV - minV)) * 65;
         const xCoords = [25, 108, 191, 275];
         const yCoords = vals.map(getY);
         const linePoints = `${xCoords[0]},${yCoords[0]} ${xCoords[1]},${yCoords[1]} ${xCoords[2]},${yCoords[2]} ${xCoords[3]},${yCoords[3]}`;
@@ -1423,6 +1441,11 @@ const runMLSearch = async (query, isPagination = false) => {
 
         const mergedScraped = mergeProducts(mlResults);
         const processedML = processProducts(mergedScraped);
+        
+        // Log real-time prices natively into Supabase database
+        if (MLService && typeof MLService.savePriceHistory === 'function') {
+            MLService.savePriceHistory(processedML);
+        }
 
         // Calcular resultados locales actuales para deduplicar por título
         const localQuery = query.toLowerCase();

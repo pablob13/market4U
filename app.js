@@ -1,5 +1,5 @@
 // Usamos variables globales desde mockData.js ya que estamos corriendo sin servidor
-console.log('%c✅ Market4U app.js v3 cache-busted cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
+console.log('%c✅ Market4U app.js v4 cache-busted cargado correctamente', 'background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-weight:bold;');
 console.log('MLService disponible:', typeof MLService !== 'undefined');
 console.log('CONFIG.ML_SEARCH_URL:', typeof CONFIG !== 'undefined' ? CONFIG.ML_SEARCH_URL : 'CONFIG no definido');
 
@@ -1550,7 +1550,10 @@ const runMLSearch = async (query, isPagination = false) => {
     try {
         const [mlResults, dbResults] = await Promise.all([
             MLService.searchGeneral(query, currentSearchLimit, currentOffset),
-            ProductsService.search(query)
+            Promise.race([
+                ProductsService.search(query),
+                new Promise(resolve => setTimeout(() => resolve(null), 1500))
+            ])
         ]);
         
         let combinedQueue = [];

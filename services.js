@@ -162,23 +162,25 @@ const MLService = {
         }
     },
 
-    // Parser para el Scraper de Soriana vía Vercel
+    // Parser dinámico para el Agregador Vercel (Soriana + Chedraui)
     parseItemsResults: (items) => {
         return items.map(item => {
             const rawTitle  = item.title || '';
             const title     = rawTitle.length > 65 ? rawTitle.substring(0, 62) + '...' : rawTitle;
 
+            const storeKey = item.seller === 'Chedraui' ? 'chedraui' : 'soriana';
+
             return {
-                id:          item.id, // ya viene preformateado como sor_... desde la API
-                ml_id:       null,
+                id:          item.id,
+                ml_id:       null, // no longer applies
                 title,
-                category:    'General', // Soriana scraper no trae category_id aun
+                category:    'General', // API scraper doesn't fetch category yet
                 image:       item.thumbnail,
-                description: 'Disponible en Soriana',
-                bestOffer:   { price: item.price || 0, store: 'soriana' },
-                sortedOffers: [{ price: item.price || 0, store: 'soriana', name: 'Soriana' }],
+                description: `Disponible en ${item.seller}`,
+                bestOffer:   { price: item.price || 0, store: storeKey },
+                sortedOffers: [{ price: item.price || 0, store: storeKey, name: item.seller }],
                 offers: {
-                    soriana: { price: item.price || 0, link: item.permalink || '#', seller: 'Soriana' }
+                    [storeKey]: { price: item.price || 0, link: item.permalink || '#', seller: item.seller }
                 }
             };
         });

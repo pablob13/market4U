@@ -20,7 +20,7 @@ const fetchSoriana = async (q, limit, offset) => {
             const nameMatch = block.match(/class="[^"]*link[^>]+>([^<]+)<\/a>/);
             const priceMatch = block.match(/class="[^"]*value[^"]*"\s+content="([0-9.]+)"/);
             let img = null;
-            const imgMatch = block.match(/class="[^"]*tile-image[^"]*"\s+src="([^"]+)"/);
+            const imgMatch = block.match(/data-src="([^"]+)"/i) || block.match(/class="[^"]*tile-image[^"]*"\s+src="([^"]+)"/);
             if (imgMatch) img = imgMatch[1].split('?')[0];
             const urlMatch = block.match(/href="([^"]+)"/);
 
@@ -86,6 +86,46 @@ const fetchChedraui = async (q, limit, offset) => {
     }
 };
 
+const fetchHeb = async (q, limit, offset) => {
+    try {
+        const toIndex = offset + limit - 1;
+        const url = `https://www.heb.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}?_from=${offset}&_to=${toIndex}`;
+        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        const results = [];
+
+        for (const p of data) {
+            const items = p.items || [];
+            if (items.length === 0) continue;
+            
+            const sellers = items[0].sellers || [];
+            if (sellers.length === 0) continue;
+            
+            const price = sellers[0].commertialOffer?.Price;
+            if (!price) continue;
+            
+            results.push({
+                id: 'heb_' + p.productId,
+                title: p.productName,
+                price: price,
+                thumbnail: (items[0].images?.[0]?.imageUrl) || 'https://via.placeholder.com/150',
+                permalink: p.linkText ? `https://www.heb.com.mx/${p.linkText}/p` : null,
+                free_shipping: false,
+                seller: 'HEB',
+                brand: p.brand || '',
+                category_id: ''
+            });
+            if (results.length >= limit) break;
+        }
+        return results;
+    } catch (err) {
+        console.error('[HEB]', err);
+        return [];
+    }
+};
+
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -95,12 +135,13 @@ module.exports = async function handler(req, res) {
     if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
 
     try {
-        const [soriana, chedraui] = await Promise.all([
+        const [soriana, chedraui, heb] = await Promise.all([
             fetchSoriana(q, Number(limit), Number(offset)),
-            fetchChedraui(q, Number(limit), Number(offset))
+            fetchChedraui(q, Number(limit), Number(offset)),
+            fetchHeb(q, Number(limit), Number(offset))
         ]);
 
-        const merged = [...soriana, ...chedraui];
+        const merged = [...soriana, ...chedraui, ...heb];
         // Shuffle or alternate results so they are mixed
         // But for now, returning as is.
 

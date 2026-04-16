@@ -49,6 +49,33 @@ const AuthService = {
         return { data, error };
     },
 
+    saveAlert: async (product, targetPrice, promo) => {
+        if (!_sb) return { error: { message: 'Demo local sin base de datos' } };
+        const session = await AuthService.getSession();
+        if (!session) return { error: { message: 'Inicia sesión para guardar tu alerta en la nube.' } };
+
+        // 1. Asegurar que el producto existe en la DB y obtener su UUID (como en savePriceHistory)
+        const { data: prodData, error: prodErr } = await _sb
+            .from('products')
+            .upsert({ ml_id: product.id, title: product.title, image_url: product.image || null, brand: product.brand || '' }, { onConflict: 'ml_id' })
+            .select('id').single();
+            
+        if (prodErr || !prodData) return { error: { message: 'Error al registrar el producto.' } };
+
+        // 2. Guardar la alerta vinculada al Usuario y al Producto
+        const { data, error } = await _sb
+            .from('price_alerts')
+            .insert([{
+                user_id: session.user.id,
+                product_id: prodData.id,
+                target_price: targetPrice,
+                notify_promo: promo,
+                is_active: true
+            }]);
+            
+        return { data, error };
+    },
+
     signOut: async () => {
         if (!_sb) return;
         await _sb.auth.signOut();

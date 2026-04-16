@@ -319,7 +319,7 @@ const openAlertModal = (id) => {
     lucide.createIcons();
 };
 
-saveAlertBtn.addEventListener('click', () => {
+saveAlertBtn.addEventListener('click', async () => {
     const targetPrice = parseFloat(alertPriceInput.value);
     const promo = alertPromoInput.checked;
     
@@ -327,10 +327,38 @@ saveAlertBtn.addEventListener('click', () => {
        return showToast('Por favor introduce un precio numérico válido.', 'warning');
     }
     
+    const product = allData.find(p => p.id === currentAlertProductId);
+    if (!product) return showToast('Error: Producto no encontrado en caché.', 'error');
+
+    saveAlertBtn.innerHTML = 'Guardando <span style="display:inline-block; animation:spin 1s linear infinite;">↻</span>';
+    saveAlertBtn.style.opacity = '0.7';
+    saveAlertBtn.style.pointerEvents = 'none';
+
+    // 1. Guardar en Base de Datos de Supabase
+    if (AuthService.isReady()) {
+        const { error } = await AuthService.saveAlert(product, targetPrice, promo);
+        if (error) {
+            saveAlertBtn.innerHTML = 'Activar Alarma';
+            saveAlertBtn.style.opacity = '1';
+            saveAlertBtn.style.pointerEvents = 'auto';
+            if (error.message.includes('Inicia sesión')) {
+               alertModal.classList.remove('active');
+               return loginModal.classList.add('active'); // Cierra alerta, abre login
+            }
+            return showToast(error.message, 'error');
+        }
+    }
+    
+    // 2. Insertar en capa visual local y purgar UI
     alerts.push({ productId: currentAlertProductId, targetPrice, promo });
     saveState();
     
+    saveAlertBtn.innerHTML = 'Activar Alarma';
+    saveAlertBtn.style.opacity = '1';
+    saveAlertBtn.style.pointerEvents = 'auto';
     alertModal.classList.remove('active');
+    
+    showToast('Alerta vinculada exitosamente', 'success');
     renderProducts(currentData);
     if(profileModal.classList.contains('active')) renderProfileTab();
 });
@@ -1249,6 +1277,18 @@ if(openLoginBtn) openLoginBtn.addEventListener('click', () => {
 closeLoginModal.addEventListener('click', () => loginModal.classList.remove('active'));
 loginModal.addEventListener('click', (e) => { if (e.target === loginModal) loginModal.classList.remove('active'); });
 
+// Google Auth
+const handleGoogleAuth = async () => {
+    if (AuthService.isReady()) {
+        const { error } = await AuthService.signInWithGoogle();
+        if (error) showToast('Error al conectar con Google', 'error');
+    } else {
+        showToast('Modo demo local: Google desactivado', 'warning');
+    }
+};
+document.getElementById('googleBtnSignin').addEventListener('click', handleGoogleAuth);
+document.getElementById('googleBtnSignup').addEventListener('click', handleGoogleAuth);
+
 // Sign In
 document.getElementById('signinBtn').addEventListener('click', async () => {
     hideAuthErrors();
@@ -1262,7 +1302,9 @@ document.getElementById('signinBtn').addEventListener('click', async () => {
         const { data, error } = await AuthService.signIn(email, password);
         setAuthLoading('signinBtn', 'signinBtnText', 'signinBtnSpinner', false);
         if (error) {
-            const msg = error.message?.includes('Invalid') ? 'Correo o contraseña incorrectos.' : error.message;
+            let msg = error.message;
+            if (msg.includes('Invalid login')) msg = 'Correo o contraseña incorrectos.';
+            if (msg.includes('Email not confirmed')) msg = 'Por favor revisa tu bandeja de entrada y confirma tu correo para poder entrar.';
             return showAuthError('signinError', msg);
         }
         const session = data?.session;
@@ -1303,12 +1345,16 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
     if (AuthService.isReady()) {
         const { data, error } = await AuthService.signUp(email, password, name);
         setAuthLoading('signupBtn', 'signupBtnText', 'signupBtnSpinner', false);
-        if (error) return showAuthError('signupError', error.message);
+        if (error) {
+            let msg = error.message;
+            if (msg.includes('already registered')) msg = 'Este correo ya está registrado.';
+            return showAuthError('signupError', msg);
+        }
 
         // Supabase puede requerir confirmación de email
         if (data?.user && !data?.session) {
             loginModal.classList.remove('active');
-            showToast('¡Cuenta creada! Revisa tu correo para confirmar.', 'info', 6000);
+            showToast('¡Verifica tu cuenta! Te hemos enviado un correo de confirmación.', 'success', 8000);
         } else if (data?.session) {
             user = {
                 id: data.session.user.id,

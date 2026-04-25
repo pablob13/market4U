@@ -1158,7 +1158,7 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
             // Construimos la URL de VTEX: /checkout/cart/add?sku=X&qty=Y... (Sin forzar seller ni sc para no romper el stock de sucursal local)
             const params = itemsToExport.map(i => {
                 const sku = i.product.sku_id || i.product.id.split('_')[1]; // Fallback al ID si sku_id falla
-                return `sku=${sku}&qty=${i.quantity}`;
+                return `sku=${sku}&qty=${i.quantity}&seller=1`;
             }).join('&');
             
             autoBtn.href = `https://${domain}/checkout/cart/add?${params}`;

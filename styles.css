@@ -1315,8 +1315,22 @@ html {
         gap: 2rem;
         padding: 1.5rem 1rem;
     }
+    .pdp-desc-box, .pdp-image-col {
+        min-width: 0; /* Permite que los elementos se encojan dentro del grid */
+        width: 100%;
+    }
+    .pdp-tabs-container {
+        gap: 0.5rem;
+        overflow-x: auto; /* Scroll horizontal en las pestañas si no caben */
+    }
+    .pdp-tab-btn {
+        white-space: nowrap;
+        font-size: 0.95rem; /* Ligeramente más pequeño en móvil */
+        padding: 0.75rem 0.25rem;
+    }
     .pdp-title {
         font-size: 1.5rem;
+        overflow-wrap: anywhere;
     }
     .brand-compare-grid {
         grid-template-columns: 1fr;

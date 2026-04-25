@@ -65,7 +65,8 @@ const fetchChedraui = async (q, limit, offset) => {
             
             const price = sellers[0].commertialOffer?.Price;
             const listPrice = sellers[0].commertialOffer?.ListPrice;
-            if (!price) continue;
+            const available = sellers[0].commertialOffer?.AvailableQuantity || 0;
+            if (!price || available <= 0) continue;
             
             results.push({
                 id: 'che_' + p.productId,
@@ -160,7 +161,8 @@ const fetchHeb = async (q, limit, offset) => {
             
             const price = sellers[0].commertialOffer?.Price;
             const listPrice = sellers[0].commertialOffer?.ListPrice;
-            if (!price) continue;
+            const available = sellers[0].commertialOffer?.AvailableQuantity || 0;
+            if (!price || available <= 0) continue;
             
             results.push({
                 id: 'heb_' + p.productId,

@@ -48,15 +48,16 @@ const fetchSoriana = async (q, limit, offset) => {
 
 const fetchChedraui = async (q, limit, offset) => {
     try {
-        const toIndex = offset + limit - 1;
-        const url = `https://www.chedraui.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}?_from=${offset}&_to=${toIndex}`;
+        const page = Math.floor(offset / limit) + 1;
+        const url = `https://www.chedraui.com.mx/api/io/_v/api/intelligent-search/product_search/?query=${encodeURIComponent(q)}&page=${page}&count=${limit}`;
         const response = await fetch(url, { headers: { "Accept": "application/json" } });
         if (!response.ok) return [];
 
         const data = await response.json();
         const results = [];
+        const productsList = data.products || [];
 
-        for (const p of data) {
+        for (const p of productsList) {
             const items = p.items || [];
             if (items.length === 0) continue;
             
@@ -74,7 +75,7 @@ const fetchChedraui = async (q, limit, offset) => {
                 price: price,
                 list_price: listPrice,
                 thumbnail: (items[0].images?.[0]?.imageUrl) || 'https://via.placeholder.com/150',
-                permalink: p.linkText ? `https://www.chedraui.com.mx/p/${p.linkText}-${p.productId}` : null,
+                permalink: p.linkText ? `https://www.chedraui.com.mx/${p.linkText}/p` : null,
                 free_shipping: false,
                 seller: 'Chedraui',
                 brand: p.brand || '',
@@ -144,15 +145,16 @@ const fetchLaComer = async (q, limit, offset) => {
 
 const fetchHeb = async (q, limit, offset) => {
     try {
-        const toIndex = offset + limit - 1;
-        const url = `https://www.heb.com.mx/api/catalog_system/pub/products/search/${encodeURIComponent(q.replace(/ /g, '-'))}?_from=${offset}&_to=${toIndex}`;
+        const page = Math.floor(offset / limit) + 1;
+        const url = `https://www.heb.com.mx/api/io/_v/api/intelligent-search/product_search/?query=${encodeURIComponent(q)}&page=${page}&count=${limit}`;
         const response = await fetch(url, { headers: { "Accept": "application/json" } });
         if (!response.ok) return [];
 
         const data = await response.json();
         const results = [];
+        const productsList = data.products || [];
 
-        for (const p of data) {
+        for (const p of productsList) {
             const items = p.items || [];
             if (items.length === 0) continue;
             

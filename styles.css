@@ -74,6 +74,10 @@ body {
     font-weight: 700;
 }
 
+.city-selector select:hover {
+    color: var(--accent-color) !important;
+}
+
 .nav-links {
     display: flex;
     align-items: center;

@@ -1293,16 +1293,21 @@ html {
         padding: 1.5rem;
     }
     .compare-table-container {
-        overflow-x: auto;
-        margin-left: -0.5rem;
-        margin-right: -0.5rem;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
+        overflow-x: visible; /* No necesitamos scroll si cabe bien */
+        margin: 0;
+        padding: 0;
     }
     .compare-table th, .compare-table td {
         padding: 0.5rem 0.2rem;
         font-size: 0.75rem;
-        white-space: nowrap;
+        white-space: normal; /* Permitir que el texto baje si es necesario */
+    }
+    /* Ocultar columnas menos vitales en móvil para que encaje perfecto */
+    .compare-table th:nth-child(4),
+    .compare-table td:nth-child(4),
+    .compare-table th:nth-child(5),
+    .compare-table td:nth-child(5) {
+        display: none;
     }
     .store-cell {
         flex-direction: column;
@@ -1310,26 +1315,34 @@ html {
         gap: 0.15rem;
     }
     .btn-goto {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.75rem;
+        padding: 0.4rem 0.4rem;
+        font-size: 0.7rem;
+        text-align: center;
     }
 
     /* Página PDP (Detalle de Producto) */
     .pdp-container {
-        grid-template-columns: 1fr; /* Una columna en móvil */
-        gap: 2rem;
-        padding: 1.5rem 1rem;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1rem 0.5rem;
     }
     .pdp-desc-box {
-        padding: 1rem 0.5rem;
+        padding: 1rem;
     }
     .pdp-desc-box, .pdp-image-col {
         min-width: 0;
         width: 100%;
     }
+    /* Ajuste de botones de acción en PDP para móvil */
+    .pdp-desc-box > div[style*="flex-wrap:wrap"] {
+        gap: 0.5rem !important;
+    }
+    .pdp-desc-box > div[style*="flex-wrap:wrap"] > button {
+        padding: 0.75rem !important;
+    }
     .pdp-tabs-container {
         gap: 0.25rem;
-        flex-wrap: wrap; /* Permitir que las pestañas bajen al siguiente renglón si no caben */
+        flex-wrap: wrap;
     }
     .pdp-tab-btn {
         flex: 1;

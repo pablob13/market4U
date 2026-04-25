@@ -169,13 +169,16 @@ const mergeProducts = (products) => {
     const merged = [];
     
     // Busca patrones amplios de súper: 3l, 500g, 18 rollos, 90 pañuelos, etc.
-    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
+    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|grs|gr|mg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
     // Buscar cantidades de piezas (12 pack, 6 botellas, etc)
     const qtyRegex = /(?:([0-9]+)\s*(?:pack|botellas|latas|piezas|pz|pzas|x))/i;
 
     const extractSize = (title) => {
         const match = title.toLowerCase().match(sizeRegex);
-        return match ? match[0].replace(/\s/g, '').replace('lt', 'l') : null;
+        if (!match) return null;
+        let num = match[1].replace(/\s/g, '');
+        let unit = match[2].replace('grs', 'g').replace('gr', 'g').replace('lt', 'l');
+        return num + unit;
     };
     
     const extractQuantity = (title) => {
@@ -212,7 +215,11 @@ const mergeProducts = (products) => {
             const minTokens = Math.min(pTokens.length, exTokens.length);
             
             // Si provienen de la misma tienda, requieren un umbral muy alto para evitar fusionar variaciones del mismo catálogo
-            const threshold = (p.seller === existing.seller) ? 0.85 : 0.55;
+            const pStores = p.offers ? p.offers.map(o => o.store) : [];
+            const exStores = existing.offers ? existing.offers.map(o => o.store) : [];
+            const sharesStore = pStores.some(s => exStores.includes(s));
+            
+            const threshold = sharesStore ? 0.85 : 0.55;
 
             if (minTokens > 0 && (intersection / minTokens >= threshold)) {
                 foundMatch = existing;

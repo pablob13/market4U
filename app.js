@@ -1599,8 +1599,9 @@ const runMLSearch = async (query, isPagination = false) => {
     showMLBadge(`⚡ Comparando en Market4U... ${isPagination ? '[Pagina ' + ((currentOffset/currentSearchLimit)+1) + ']' : ''}`);
 
     try {
+        const city = document.getElementById('globalCitySelector')?.value || 'default';
         const [mlResults, dbResults] = await Promise.all([
-            MLService.searchGeneral(query, currentSearchLimit, currentOffset),
+            MLService.searchGeneral(query, currentSearchLimit, currentOffset, city),
             Promise.race([
                 ProductsService.search(query),
                 new Promise(resolve => setTimeout(() => resolve(null), 1500))

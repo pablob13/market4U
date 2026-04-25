@@ -207,8 +207,13 @@ module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    const { q, limit = 48, offset = 0 } = req.query;
+    const { q, limit = 48, offset = 0, city = 'default' } = req.query;
     if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
+
+    // TODO: Implementar mapeo de ciudades a "Sales Channels (sc)" para VTEX y "sucursales" para Constructor.io
+    // Ejemplo (no implementado por falta de catálogos exactos):
+    // const cityMap = { 'cdmx': { chedrauiSC: '1', hebSC: '1', lacomerId: '27' }, 'mty': { ... } }
+    // if (city !== 'default') { apply_regional_filters... }
 
     try {
         // Ejecutar todos los scrapers en paralelo para máxima velocidad

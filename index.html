@@ -31,6 +31,20 @@
                 <i data-lucide="shopping-cart" class="logo-icon"></i>
                 <span>Market<span class="logo-bold">4U</span></span>
             </div>
+            
+            <div style="display: flex; align-items: center; gap: 1rem; margin-left: 2rem;">
+                <div class="city-selector" style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.5rem 1rem; border-radius: var(--radius-full); cursor: pointer; border: 1px solid var(--border-color);">
+                    <i data-lucide="map-pin" style="width: 16px; height: 16px; color: var(--text-secondary);"></i>
+                    <select id="globalCitySelector" style="background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 0.9rem; font-family: inherit; font-weight: 500; cursor: pointer;">
+                        <option value="default">Nacional (Todo MX)</option>
+                        <option value="cdmx">Ciudad de México</option>
+                        <option value="mty">Monterrey</option>
+                        <option value="gdl">Guadalajara</option>
+                        <option value="qro">Querétaro</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="nav-links">
                 <a href="#" id="homeNavBtn" style="color: var(--accent-color); font-weight: 600;">Supermercado</a>
                 <a href="#">Hogar</a>
@@ -413,10 +427,10 @@
     </div>
 
     <!-- Scripts -->
-    <script src="config.js?v=7"></script>
-    <script src="mockData.js?v=7"></script>
-    <script src="services.js?v=7"></script>
-    <script src="app.js?v=7"></script>
+    <script src="config.js?v=8"></script>
+    <script src="mockData.js?v=8"></script>
+    <script src="services.js?v=8"></script>
+    <script src="app.js?v=8"></script>
     <script>
         // Iniciar iconos al cargar
         lucide.createIcons();

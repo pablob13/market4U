@@ -165,10 +165,10 @@ const MLService = {
         }
     },
 
-    searchGeneral: async (query, limit = 48, offset = 0) => {
+    searchGeneral: async (query, limit = 48, offset = 0, city = 'default') => {
         try {
-            // Pivoting to Vercel Serverless Function to test Soriana Scraping
-            const vercelUrl = `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`;
+            // Pasamos el query, la ciudad y paginación al Vercel Serverless Function
+            const vercelUrl = `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&city=${encodeURIComponent(city)}`;
             
             const res = await fetch(vercelUrl);
 

@@ -419,7 +419,8 @@ window.deleteAddress = (id) => {
 
 const storeFiltersContainer = document.getElementById('storeFiltersContainer');
 const initStoreFilters = () => {
-    storeFiltersContainer.innerHTML = Object.keys(stores).map(k => `
+    const liveStoreKeys = Object.keys(stores).filter(k => stores[k].live);
+    storeFiltersContainer.innerHTML = liveStoreKeys.map(k => `
         <button onclick="toggleStoreFilter('${k}')" class="btn-outline" style="border-radius: 99px; padding: 0.25rem 0.75rem; font-size: 0.8rem; flex:none; user-select:none; transition:var(--transition); display:flex; align-items:center; gap:0.25rem; background: ${activeStoreFilters.has(k) ? stores[k].bgColor : 'transparent'}; color: ${activeStoreFilters.has(k) ? stores[k].color : 'var(--text-secondary)'}; border-color: ${activeStoreFilters.has(k) ? 'transparent' : 'var(--border-color)'};">
             <span style="font-weight:bold;">${stores[k].logo}</span> ${stores[k].name}
         </button>

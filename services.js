@@ -198,6 +198,7 @@ const MLService = {
             let storeKey = 'soriana';
             if (item.seller === 'Chedraui') storeKey = 'chedraui';
             if (item.seller === 'HEB') storeKey = 'heb';
+            if (item.seller === 'La Comer') storeKey = 'lacomer';
 
             return {
                 id:          item.id,

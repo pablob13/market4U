@@ -88,6 +88,58 @@ const fetchChedraui = async (q, limit, offset) => {
     }
 };
 
+// ============================================
+// LA COMER — vía Constructor.io Search API
+// (key pública descubierta en el sitio oficial)
+// Docs: https://docs.constructor.io/rest_api/
+// ============================================
+const fetchLaComer = async (q, limit, offset) => {
+    try {
+        const page = Math.floor(offset / limit) + 1;
+        const url = `https://ac.cnstrc.com/search/${encodeURIComponent(q)}?key=key_jFyBbey5lPs8DCW4&num_results_per_page=${limit}&page=${page}`;
+        const response = await fetch(url, {
+            headers: {
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (compatible; Market4U/2.0)"
+            }
+        });
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        const items = data.response?.results || [];
+        const results = [];
+
+        for (const item of items) {
+            const d = item.data || {};
+            const price = d.price || d.sale_price;
+            if (!price) continue;
+
+            // Construir permalink limpio con el ID del producto (EAN/barcode)
+            const productId = d.id || '';
+            const permalink = productId
+                ? `https://www.lacomer.com.mx/lacomer/#!/detarticulo/${productId}/0/27/1///27`
+                : 'https://www.lacomer.com.mx';
+
+            results.push({
+                id: 'lac_' + productId,
+                title: d.description || item.value || '',
+                price: parseFloat(price),
+                thumbnail: d.image_url || 'https://via.placeholder.com/150',
+                permalink,
+                free_shipping: false,
+                seller: 'La Comer',
+                brand: d.brand || '',
+                category_id: ''
+            });
+            if (results.length >= limit) break;
+        }
+        return results;
+    } catch (err) {
+        console.error('[La Comer]', err);
+        return [];
+    }
+};
+
 const fetchHeb = async (q, limit, offset) => {
     try {
         const toIndex = offset + limit - 1;
@@ -139,17 +191,34 @@ module.exports = async function handler(req, res) {
     if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
 
     try {
-        const [soriana, chedraui, heb] = await Promise.all([
+        // Ejecutar todos los scrapers en paralelo para máxima velocidad
+        const [soriana, chedraui, heb, lacomer] = await Promise.all([
             fetchSoriana(q, Number(limit), Number(offset)),
             fetchChedraui(q, Number(limit), Number(offset)),
-            fetchHeb(q, Number(limit), Number(offset))
+            fetchHeb(q, Number(limit), Number(offset)),
+            fetchLaComer(q, Number(limit), Number(offset))
         ]);
 
-        const merged = [...soriana, ...chedraui, ...heb];
-        // Shuffle or alternate results so they are mixed
-        // But for now, returning as is.
+        // Intercalar resultados por tienda para mejor UX (no todos los de una tienda juntos)
+        const merged = [];
+        const sources = [soriana, chedraui, heb, lacomer];
+        const maxLen = Math.max(...sources.map(s => s.length));
+        for (let i = 0; i < maxLen; i++) {
+            for (const source of sources) {
+                if (source[i]) merged.push(source[i]);
+            }
+        }
 
-        return res.status(200).json({ results: merged, total: merged.length });
+        return res.status(200).json({
+            results: merged,
+            total: merged.length,
+            breakdown: {
+                soriana: soriana.length,
+                chedraui: chedraui.length,
+                heb: heb.length,
+                lacomer: lacomer.length
+            }
+        });
     } catch (err) {
         console.error('[Aggregator] Error:', err);
         return res.status(500).json({ error: 'Internal server error' });

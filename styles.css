@@ -1256,7 +1256,7 @@ body {
         max-width: 100%;
         width: 100%;
     }
-    #closeCartModal {
+    #closeCartModal, #closeProfileModal {
         left: auto !important;
         right: 1.5rem !important;
         top: 1.5rem !important;

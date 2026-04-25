@@ -1194,9 +1194,21 @@ body {
     .nav-user-name {
         display: none;
     }
+    .desktop-login-text {
+        display: none;
+    }
+    .mobile-login-icon {
+        display: inline-block !important;
+        margin-right: 0 !important;
+    }
     .btn-login {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.85rem;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     /* Buscador */
@@ -1243,6 +1255,14 @@ body {
     .side-modal {
         max-width: 100%;
         width: 100%;
+    }
+    #closeCartModal {
+        left: auto !important;
+        right: 1.5rem !important;
+        top: 1.5rem !important;
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary) !important;
+        z-index: 100;
     }
     .cart-header {
         padding: 1.5rem 1rem;

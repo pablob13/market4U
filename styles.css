@@ -1293,20 +1293,25 @@ html {
         padding: 1.5rem;
     }
     .compare-table-container {
-        overflow-x: auto; /* Permitir scroll horizontal si la tabla es muy ancha */
+        overflow-x: auto;
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
     .compare-table th, .compare-table td {
-        padding: 0.75rem 0.5rem;
-        font-size: 0.85rem;
+        padding: 0.5rem 0.2rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
     }
     .store-cell {
         flex-direction: column;
         align-items: flex-start;
-        gap: 0.25rem;
+        gap: 0.15rem;
     }
     .btn-goto {
-        padding: 0.4rem 0.75rem;
-        font-size: 0.8rem;
+        padding: 0.3rem 0.5rem;
+        font-size: 0.75rem;
     }
 
     /* Página PDP (Detalle de Producto) */
@@ -1315,21 +1320,30 @@ html {
         gap: 2rem;
         padding: 1.5rem 1rem;
     }
+    .pdp-desc-box {
+        padding: 1rem 0.5rem;
+    }
     .pdp-desc-box, .pdp-image-col {
-        min-width: 0; /* Permite que los elementos se encojan dentro del grid */
+        min-width: 0;
         width: 100%;
     }
     .pdp-tabs-container {
-        gap: 0.5rem;
-        overflow-x: auto; /* Scroll horizontal en las pestañas si no caben */
+        gap: 0.25rem;
+        flex-wrap: wrap; /* Permitir que las pestañas bajen al siguiente renglón si no caben */
     }
     .pdp-tab-btn {
-        white-space: nowrap;
-        font-size: 0.95rem; /* Ligeramente más pequeño en móvil */
-        padding: 0.75rem 0.25rem;
+        flex: 1;
+        min-width: 140px;
+        text-align: center;
+        white-space: normal;
+        font-size: 0.85rem;
+        padding: 0.5rem 0.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     .pdp-title {
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         overflow-wrap: anywhere;
     }
     .brand-compare-grid {

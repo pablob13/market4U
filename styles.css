@@ -1183,6 +1183,12 @@ body {
     .btn-user-logged {
         width: 36px !important;
         height: 36px !important;
+        padding: 0;
+        justify-content: center;
+        border-radius: 50%;
+    }
+    .nav-user-name {
+        display: none;
     }
     .btn-login {
         padding: 0.4rem 0.8rem;

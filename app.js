@@ -268,7 +268,7 @@ const renderUserNav = () => {
     } else {
         userNavControl.innerHTML = `
             <button class="btn-user-logged" id="openProfileBtn">
-                <i data-lucide="user-circle" style="width: 20px;"></i> ${user.name}
+                <i data-lucide="user-circle" style="width: 20px;"></i> <span class="nav-user-name">${user.name}</span>
             </button>
         `;
         document.getElementById('openProfileBtn').addEventListener('click', () => {
@@ -1439,12 +1439,7 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
     }
 });
 
-// Google OAuth
-document.getElementById('googleSigninBtn').addEventListener('click', async () => {
-    if (!AuthService.isReady()) return showToast('Supabase no configurado para OAuth', 'warning');
-    const { error } = await AuthService.signInWithGoogle();
-    if (error) showToast(error.message || 'Error con Google', 'error');
-});
+
 
 // Profile / Logout
 closeProfileModal.addEventListener('click', () => profileModal.classList.remove('active'));

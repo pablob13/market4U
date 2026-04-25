@@ -205,6 +205,8 @@ const MLService = {
             return {
                 id:          item.id,
                 ml_id:       null, // no longer applies
+                sku_id:      item.sku_id || null,
+                permalink:   item.permalink || null,
                 title,
                 category:    'General', // API scraper doesn't fetch category yet
                 image:       item.thumbnail,

@@ -77,6 +77,7 @@ const fetchChedraui = async (q, limit, offset) => {
                 free_shipping: false,
                 seller: 'Chedraui',
                 brand: p.brand || '',
+                sku_id: items[0].itemId || '',
                 category_id: ''
             });
             if (results.length >= limit) break;
@@ -171,6 +172,7 @@ const fetchHeb = async (q, limit, offset) => {
                 free_shipping: false,
                 seller: 'HEB',
                 brand: p.brand || '',
+                sku_id: items[0].itemId || '',
                 category_id: ''
             });
             if (results.length >= limit) break;

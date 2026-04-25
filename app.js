@@ -927,7 +927,7 @@ window.openProductModal = async (id, tab = 'stores') => {
                         <td class="shipping-cell">${offer.shipping === 0 ? '<span style="color:var(--success); font-weight:600;">Gratis</span>' : formatCurrency(offer.shipping)}</td>
                         <td class="delivery-cell">${offer.delivery}</td>
                         <td style="font-weight: 600;">${formatCurrency(total)}</td>
-                        <td style="text-align: right;"><button onclick="startRedirect('${offer.store}', false)" class="btn-goto ${!isBest ? 'outline' : ''}" style="border-radius:var(--radius-sm); border: ${isBest ? 'none' : '1px solid var(--border-color)'}; cursor: pointer;">Ir a Tienda</button></td>
+                        <td style="text-align: right;"><button onclick="startRedirect('${offer.store}', false, '${product.id}')" class="btn-goto ${!isBest ? 'outline' : ''}" style="border-radius:var(--radius-sm); border: ${isBest ? 'none' : '1px solid var(--border-color)'}; cursor: pointer;">Ir a Tienda</button></td>
                     </tr>
                 `;
             }).join('');
@@ -1089,7 +1089,7 @@ window.openProductModal = async (id, tab = 'stores') => {
 };
 
 /* --- REDIRECT LOGIC --- */
-window.startRedirect = (storeKey, isCart) => {
+window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if(cartModal.classList.contains('active')) cartModal.classList.remove('active');
 
     const store = stores[storeKey];
@@ -1107,16 +1107,66 @@ window.startRedirect = (storeKey, isCart) => {
     redirectSpinner.style.display = 'block';
     redirectSuccess.style.display = 'none';
     
-    if(isCart) {
+    let itemsToExport = [];
+    if (isCart) {
+        // Obtenemos los items del carrito global que están disponibles en esta tienda
+        itemsToExport = cart.map(citem => {
+            const offer = citem.product.offers.find(o => o.store === storeKey);
+            if (offer) return { product: citem.product, offer, quantity: citem.quantity };
+            return null;
+        }).filter(Boolean);
         redirectTitle.innerText = `Armando Canasta en ${store.name}...`;
-        redirectSubtitle.innerText = 'Transfiriendo tu lista con los mejores precios garantizados de afiliado.';
+        redirectSubtitle.innerText = 'Transfiriendo tu lista con los mejores precios garantizados.';
     } else {
+        // Caso de comprar un solo item desde el comparador
+        const p = currentData.find(x => x.id === singleProductId) || allData.find(x => x.id === singleProductId);
+        if (p) {
+            const offer = p.offers.find(o => o.store === storeKey) || p.bestOffer;
+            itemsToExport = [{ product: p, offer, quantity: 1 }];
+        }
         redirectTitle.innerText = `Conectando con ${store.name}...`;
         redirectSubtitle.innerText = 'Asegurando tu mejor precio unitario de afiliado.';
     }
     
     redirectModal.classList.add('active');
     lucide.createIcons();
+    
+    // Populating UI for success state
+    const successStoreName = document.getElementById('redirectSuccessStoreName');
+    const itemsContainer = document.getElementById('redirectCartItems');
+    const autoBtn = document.getElementById('autoCheckoutBtn');
+    
+    if (successStoreName) successStoreName.innerText = store.name;
+    
+    if (itemsContainer) {
+        itemsContainer.innerHTML = itemsToExport.map(item => `
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary);">
+                <img src="${item.product.image}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); text-align: left;">${item.product.title}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); text-align: left;">${item.quantity} un. x ${formatCurrency(item.offer.price)}</div>
+                </div>
+                <a href="${item.product.permalink || item.offer.url || '#'}" target="_blank" class="btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none;">Ver</a>
+            </div>
+        `).join('');
+    }
+    
+    // Auto-checkout for VTEX (Chedraui, HEB)
+    if (autoBtn) {
+        if (storeKey === 'chedraui' || storeKey === 'heb') {
+            const domain = storeKey === 'chedraui' ? 'www.chedraui.com.mx' : 'www.heb.com.mx';
+            // Construimos la URL de VTEX: /checkout/cart/add?sku=X&qty=Y&seller=1&sc=1...
+            const params = itemsToExport.map(i => {
+                const sku = i.product.sku_id || i.product.id.split('_')[1]; // Fallback al ID si sku_id falla
+                return `sku=${sku}&qty=${i.quantity}&seller=1&sc=1`;
+            }).join('&');
+            
+            autoBtn.href = `https://${domain}/checkout/cart/add?${params}`;
+            autoBtn.style.display = 'flex';
+        } else {
+            autoBtn.style.display = 'none'; // Soriana y La Comer requieren adición manual por ahora
+        }
+    }
     
     // Simular tiempo de transferencia
     setTimeout(() => {

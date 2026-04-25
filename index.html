@@ -277,12 +277,19 @@
             <p id="redirectSubtitle" style="color: var(--text-secondary); font-size: 0.95rem; max-width: 80%;">Estamos transfiriendo tu canasta asegurando los mejores precios de afiliado.</p>
             
             <div id="redirectSuccess" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-                <div style="width: 64px; height: 64px; border-radius: 50%; background-color: var(--success); color: white; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
-                    <i data-lucide="check" style="width: 32px; height: 32px;"></i>
+                <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem; text-align: left; width: 100%;">Tu carrito en <span id="redirectSuccessStoreName">Tienda</span></h2>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem; text-align: left; width: 100%;">Añade estos productos a tu carrito. Haz clic en cada uno para abrir la página del producto.</p>
+                
+                <div id="redirectCartItems" style="width: 100%; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; padding-right: 0.5rem;">
+                    <!-- Items inyectados desde app.js -->
                 </div>
-                <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">¡Listo para comprar!</h2>
-                <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 2rem;">En un entorno real, aquí se abriría una nueva pestaña hacia la tienda oficial con tu carrito pre-cargado.</p>
-                <button id="closeRedirectBtn" class="btn-search" style="width: 100%;">Entendido</button>
+                
+                <div style="display: flex; gap: 1rem; width: 100%;">
+                    <button id="closeRedirectBtn" class="btn-outline" style="flex: 1;">Cerrar</button>
+                    <a id="autoCheckoutBtn" href="#" target="_blank" class="btn-primary" style="flex: 2; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <i data-lucide="shopping-cart"></i> Auto-completar Carrito
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -401,10 +408,10 @@
     </div>
 
     <!-- Scripts -->
-    <script src="config.js?v=6"></script>
-    <script src="mockData.js?v=6"></script>
-    <script src="services.js?v=6"></script>
-    <script src="app.js?v=6"></script>
+    <script src="config.js?v=7"></script>
+    <script src="mockData.js?v=7"></script>
+    <script src="services.js?v=7"></script>
+    <script src="app.js?v=7"></script>
     <script>
         // Iniciar iconos al cargar
         lucide.createIcons();

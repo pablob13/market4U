@@ -1155,10 +1155,10 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if (autoBtn) {
         if (storeKey === 'chedraui' || storeKey === 'heb') {
             const domain = storeKey === 'chedraui' ? 'www.chedraui.com.mx' : 'www.heb.com.mx';
-            // Construimos la URL de VTEX: /checkout/cart/add?sku=X&qty=Y&seller=1&sc=1...
+            // Construimos la URL de VTEX: /checkout/cart/add?sku=X&qty=Y... (Sin forzar seller ni sc para no romper el stock de sucursal local)
             const params = itemsToExport.map(i => {
                 const sku = i.product.sku_id || i.product.id.split('_')[1]; // Fallback al ID si sku_id falla
-                return `sku=${sku}&qty=${i.quantity}&seller=1&sc=1`;
+                return `sku=${sku}&qty=${i.quantity}`;
             }).join('&');
             
             autoBtn.href = `https://${domain}/checkout/cart/add?${params}`;
@@ -1622,7 +1622,7 @@ const runMLSearch = async (query, isPagination = false) => {
 
         // Limpiar resultados previos SOLO si es una búsqueda nueva
         if (!isPagination) {
-           allData = allData.filter(p => !p.id?.startsWith('sor_') && !p.id?.startsWith('che_'));
+           allData = allData.filter(p => !p.id?.startsWith('sor_') && !p.id?.startsWith('che_') && !p.id?.startsWith('heb_') && !p.id?.startsWith('lac_') && !p.id?.startsWith('cm_'));
         }
 
         const mergedScraped = mergeProducts(combinedQueue);

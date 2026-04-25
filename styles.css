@@ -1213,11 +1213,15 @@ body {
     
     /* Buscador */
     .search-container {
-        padding: 0.25rem;
+        padding: 0.35rem;
+    }
+    .search-box {
+        flex-wrap: nowrap;
     }
     .search-box input {
         padding: 0.6rem 0.2rem;
-        font-size: 0.9rem;
+        font-size: 16px; /* Prevent iOS Safari auto-zoom on focus */
+        min-width: 0; /* Allow input to shrink on very small screens */
     }
     .search-box input::placeholder {
         font-size: 0.85rem;
@@ -1225,6 +1229,7 @@ body {
     .btn-search {
         padding: 0.6rem 1rem;
         font-size: 0; /* Ocultar el texto "Buscar Precio" original */
+        flex-shrink: 0; /* Prevent the button from being squished or pushed out */
     }
     .btn-search::after {
         content: "Buscar";

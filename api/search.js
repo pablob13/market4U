@@ -182,6 +182,22 @@ const fetchHeb = async (q, limit, offset) => {
     }
 };
 
+const fetchCityMarket = async (q, limit, offset) => {
+    try {
+        // City Market comparte la misma infraestructura y API key (Constructor.io) que La Comer
+        const results = await fetchLaComer(q, limit, offset);
+        return results.map(r => ({
+            ...r,
+            id: r.id.replace('lac_', 'cm_'),
+            seller: 'City Market',
+            permalink: r.permalink.replace('lacomer', 'citymarket') // Intento de adaptar el link
+        }));
+    } catch (err) {
+        console.error('[City Market]', err);
+        return [];
+    }
+};
+
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -192,16 +208,17 @@ module.exports = async function handler(req, res) {
 
     try {
         // Ejecutar todos los scrapers en paralelo para máxima velocidad
-        const [soriana, chedraui, heb, lacomer] = await Promise.all([
+        const [soriana, chedraui, heb, lacomer, citymarket] = await Promise.all([
             fetchSoriana(q, Number(limit), Number(offset)),
             fetchChedraui(q, Number(limit), Number(offset)),
             fetchHeb(q, Number(limit), Number(offset)),
-            fetchLaComer(q, Number(limit), Number(offset))
+            fetchLaComer(q, Number(limit), Number(offset)),
+            fetchCityMarket(q, Number(limit), Number(offset))
         ]);
 
         // Intercalar resultados por tienda para mejor UX (no todos los de una tienda juntos)
         const merged = [];
-        const sources = [soriana, chedraui, heb, lacomer];
+        const sources = [soriana, chedraui, heb, lacomer, citymarket];
         const maxLen = Math.max(...sources.map(s => s.length));
         for (let i = 0; i < maxLen; i++) {
             for (const source of sources) {
@@ -216,7 +233,8 @@ module.exports = async function handler(req, res) {
                 soriana: soriana.length,
                 chedraui: chedraui.length,
                 heb: heb.length,
-                lacomer: lacomer.length
+                lacomer: lacomer.length,
+                citymarket: citymarket.length
             }
         });
     } catch (err) {

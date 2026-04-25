@@ -199,6 +199,8 @@ const MLService = {
             if (item.seller === 'Chedraui') storeKey = 'chedraui';
             if (item.seller === 'HEB') storeKey = 'heb';
             if (item.seller === 'La Comer') storeKey = 'lacomer';
+            if (item.seller === 'City Market') storeKey = 'citymarket';
+
 
             return {
                 id:          item.id,

@@ -25,7 +25,9 @@
         "*://*.soriana.com/*",
         "*://*.justo.mx/*",
         "*://*.fresko.com.mx/*",
-        "*://*.lacomer.com.mx/*"
+        "*://*.lacomer.com.mx/*",
+        "*://localhost/*",
+        "*://*.vercel.app/*"
       ],
       "js": ["content.js"]
     }

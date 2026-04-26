@@ -1162,16 +1162,41 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if (autoBtn) {
         if (storeKey === 'chedraui' || storeKey === 'heb') {
             const domain = storeKey === 'chedraui' ? 'www.chedraui.com.mx' : 'www.heb.com.mx';
-            // Construimos la URL de VTEX: /checkout/cart/add?sku=X&qty=Y... (Sin forzar seller ni sc para no romper el stock de sucursal local)
             const params = itemsToExport.map(i => {
-                const sku = i.product.sku_id || i.product.id.split('_')[1]; // Fallback al ID si sku_id falla
+                const sku = i.product.sku_id || i.product.id.split('_')[1];
                 return `sku=${sku}&qty=${i.quantity}&seller=1`;
             }).join('&');
             
+            autoBtn.innerText = "Auto-agregar al carrito";
             autoBtn.href = `https://${domain}/checkout/cart/add?${params}`;
+            autoBtn.onclick = null;
             autoBtn.style.display = 'flex';
+            autoBtn.style.pointerEvents = "auto";
+        } else if (storeKey === 'soriana' || storeKey === 'justo' || storeKey === 'fresko' || storeKey === 'lacomer') {
+            // Trigger Extensión Chrome
+            autoBtn.innerText = "Auto-checkout con Extensión 🪄";
+            autoBtn.href = "#";
+            autoBtn.style.display = 'flex';
+            autoBtn.style.pointerEvents = "auto";
+            autoBtn.onclick = (e) => {
+                e.preventDefault();
+                autoBtn.innerText = "Transfiriendo...";
+                autoBtn.style.pointerEvents = "none";
+                window.postMessage({
+                    type: "MARKET4U_AUTO_CHECKOUT",
+                    payload: { store: storeKey, items: itemsToExport }
+                }, "*");
+                
+                // Fallback por si no tienen la extensión instalada
+                setTimeout(() => {
+                    if(autoBtn.innerText === "Transfiriendo...") {
+                        autoBtn.innerText = "Requiere la extensión instalada";
+                        autoBtn.style.backgroundColor = "var(--text-secondary)";
+                    }
+                }, 2000);
+            };
         } else {
-            autoBtn.style.display = 'none'; // Soriana y La Comer requieren adición manual por ahora
+            autoBtn.style.display = 'none';
         }
     }
     

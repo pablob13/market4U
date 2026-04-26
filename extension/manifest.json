@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Market4U Auto-Checkout",
+  "version": "1.0",
+  "description": "Extensión oficial de Market4U para automatizar la inserción de carritos en Soriana, Jüsto, Fresko y La Comer.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.soriana.com/*",
+    "*://*.justo.mx/*",
+    "*://*.fresko.com.mx/*",
+    "*://*.lacomer.com.mx/*",
+    "*://*.market4u.com/*",
+    "*://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.soriana.com/*",
+        "*://*.justo.mx/*",
+        "*://*.fresko.com.mx/*",
+        "*://*.lacomer.com.mx/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_title": "Market4U"
+  }
+}

@@ -1,6 +1,6 @@
 // background.js - Service Worker de la extensión
-// Escucha cuando la página web de Market4U envía una solicitud para hacer auto-checkout
-chrome.runtime.onMessageExternal.addListener((request, sender, sendResponse) => {
+// Escucha cuando la página web de Market4U envía una solicitud para hacer auto-checkout a través de content.js
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTO_CHECKOUT') {
         const { store, items } = request;
         

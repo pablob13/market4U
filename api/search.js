@@ -204,6 +204,66 @@ const fetchCityMarket = async (q, limit, offset) => {
     }
 };
 
+// FRESKO — Vía La Comer (Reutilizamos la API porque comparten infraestructura)
+const fetchFresko = async (q, limit, offset) => {
+    try {
+        const lacomerResults = await fetchLaComer(q, limit, offset);
+        return lacomerResults.map(p => ({
+            ...p,
+            id: p.id.replace('lac_', 'fre_'),
+            seller: 'Fresko',
+            permalink: p.permalink.replace('/lacomer/', '/fresko/')
+        }));
+    } catch (e) {
+        return [];
+    }
+};
+
+// JÜSTO — Vía GraphQL
+const fetchJusto = async (q, limit, offset) => {
+    try {
+        const query = `
+        {
+          products(first: ${limit}, filter: { search: "${q}" }) {
+            edges {
+              node {
+                id
+                name
+                thumbnail { url }
+                pricing { priceRange { start { net { amount } } } }
+              }
+            }
+          }
+        }`;
+        
+        const response = await fetch("https://api.justo.mx/graphql/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query })
+        });
+        const data = await response.json();
+        const edges = data?.data?.products?.edges || [];
+        
+        return edges.map(edge => {
+            const p = edge.node;
+            return {
+                id: 'jus_' + p.id.replace(/=/g, ''),
+                title: p.name,
+                price: p.pricing?.priceRange?.start?.net?.amount || 0,
+                thumbnail: p.thumbnail?.url || 'https://via.placeholder.com/150',
+                permalink: `https://justo.mx/search?q=${encodeURIComponent(q)}`,
+                free_shipping: false,
+                seller: 'Jüsto',
+                brand: '',
+                category_id: ''
+            };
+        }).filter(p => p.price > 0);
+    } catch (e) {
+        console.error('Justo error:', e);
+        return [];
+    }
+};
+
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -219,17 +279,19 @@ module.exports = async function handler(req, res) {
 
     try {
         // Ejecutar todos los scrapers en paralelo para máxima velocidad
-        const [soriana, chedraui, heb, lacomer, citymarket] = await Promise.all([
+        const [soriana, chedraui, heb, lacomer, citymarket, fresko, justo] = await Promise.all([
             fetchSoriana(q, Number(limit), Number(offset)),
             fetchChedraui(q, Number(limit), Number(offset)),
             fetchHeb(q, Number(limit), Number(offset)),
             fetchLaComer(q, Number(limit), Number(offset)),
-            fetchCityMarket(q, Number(limit), Number(offset))
+            fetchCityMarket(q, Number(limit), Number(offset)),
+            fetchFresko(q, Number(limit), Number(offset)),
+            fetchJusto(q, Number(limit), Number(offset))
         ]);
 
         // Intercalar resultados por tienda para mejor UX (no todos los de una tienda juntos)
         const merged = [];
-        const sources = [soriana, chedraui, heb, lacomer, citymarket];
+        const sources = [soriana, chedraui, heb, lacomer, citymarket, fresko, justo];
         const maxLen = Math.max(...sources.map(s => s.length));
         for (let i = 0; i < maxLen; i++) {
             for (const source of sources) {
@@ -245,7 +307,9 @@ module.exports = async function handler(req, res) {
                 chedraui: chedraui.length,
                 heb: heb.length,
                 lacomer: lacomer.length,
-                citymarket: citymarket.length
+                citymarket: citymarket.length,
+                fresko: fresko.length,
+                justo: justo.length
             }
         });
     } catch (err) {

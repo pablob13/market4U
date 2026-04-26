@@ -24,10 +24,20 @@ const stores = {
         logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="72" fill="white" font-family="Arial, sans-serif" font-weight="900" font-size="65" text-anchor="middle" letter-spacing="-2">LC</text></svg>`,  
         color: '#ffffff', bgColor: '#007a4c', live: true 
     },
+    fresko: { 
+        name: 'Fresko', 
+        logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="70" fill="white" font-family="'Georgia', serif" font-style="italic" font-weight="bold" font-size="50" text-anchor="middle">Fr</text></svg>`,  
+        color: '#ffffff', bgColor: '#632066', live: true 
+    },
     citymarket: { 
         name: 'City Market', 
         logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="72" fill="white" font-family="'Georgia', serif" font-weight="normal" font-size="65" text-anchor="middle" letter-spacing="-1">CM</text></svg>`,  
         color: '#ffffff', bgColor: '#4c2d1b', live: true 
+    },
+    justo: { 
+        name: 'Jüsto', 
+        logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="72" fill="white" font-family="'Arial', sans-serif" font-weight="bold" font-size="55" text-anchor="middle" letter-spacing="-2">Jü</text></svg>`,  
+        color: '#ffffff', bgColor: '#87c846', live: true 
     },
     amazon: { 
         name: 'Amazon Súper', 

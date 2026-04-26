@@ -35,17 +35,34 @@ else {
         if (store === 'soriana' && window.location.hostname.includes('soriana.com')) {
             console.log("Iniciando inyección en Soriana...", items);
             
-            // 1. Obtener el CSRF token de la página
+            // 1. Intentar obtener el CSRF token de la página actual
             let csrfToken = '';
-            const csrfInput = document.querySelector('input[name="csrf_token"]');
+            let csrfInput = document.querySelector('input[name="csrf_token"]');
+            
             if (csrfInput) {
                 csrfToken = csrfInput.value;
             } else {
-                // Alternativa: buscar en los forms
+                // Alternativa: buscar en todos los forms
                 const forms = document.querySelectorAll('form');
                 for (let f of forms) {
                     let input = f.querySelector('[name="csrf_token"]');
                     if (input) { csrfToken = input.value; break; }
+                }
+            }
+            
+            // Si la página actual no tiene formularios (ej. carrito vacío), lo robamos haciendo un fetch a la página principal
+            if (!csrfToken) {
+                console.log("No se encontró token en el DOM. Obteniendo de la página principal...");
+                try {
+                    const homeRes = await fetch('/');
+                    const homeText = await homeRes.text();
+                    const match = homeText.match(/name="csrf_token"\s+value="([^"]+)"/);
+                    if (match && match[1]) {
+                        csrfToken = match[1];
+                        console.log("Token extraído exitosamente del background!");
+                    }
+                } catch(e) {
+                    console.error("No se pudo obtener el token remoto", e);
                 }
             }
             

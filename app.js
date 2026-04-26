@@ -1142,6 +1142,11 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     const successStoreName = document.getElementById('redirectSuccessStoreName');
     const itemsContainer = document.getElementById('redirectCartItems');
     const autoBtn = document.getElementById('autoCheckoutBtn');
+    if (autoBtn) {
+        autoBtn.style.backgroundColor = "";
+        autoBtn.style.color = "";
+        autoBtn.classList.remove('extension-success');
+    }
     
     if (successStoreName) successStoreName.innerText = store.name;
     
@@ -1182,6 +1187,20 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
                 e.preventDefault();
                 autoBtn.innerText = "Transfiriendo...";
                 autoBtn.style.pointerEvents = "none";
+                autoBtn.classList.remove('extension-success');
+                
+                // Agregamos un listener temporal para el ACK
+                const ackListener = (event) => {
+                    if (event.data && event.data.type === "MARKET4U_EXTENSION_ACK") {
+                        autoBtn.innerText = "Abriendo carrito...";
+                        autoBtn.style.backgroundColor = "#007a4c";
+                        autoBtn.style.color = "white";
+                        autoBtn.classList.add('extension-success');
+                        window.removeEventListener("message", ackListener);
+                    }
+                };
+                window.addEventListener("message", ackListener);
+
                 window.postMessage({
                     type: "MARKET4U_AUTO_CHECKOUT",
                     payload: { store: storeKey, items: itemsToExport }
@@ -1189,9 +1208,11 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
                 
                 // Fallback por si no tienen la extensión instalada
                 setTimeout(() => {
-                    if(autoBtn.innerText === "Transfiriendo...") {
+                    if(!autoBtn.classList.contains('extension-success')) {
                         autoBtn.innerText = "Requiere la extensión instalada";
                         autoBtn.style.backgroundColor = "var(--text-secondary)";
+                        autoBtn.style.color = "white";
+                        window.removeEventListener("message", ackListener);
                     }
                 }, 2000);
             };

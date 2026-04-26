@@ -16,6 +16,7 @@ if (window.location.hostname.includes('localhost') || window.location.hostname.i
                 items: event.data.payload.items
             }, (response) => {
                 console.log("Background respondió:", response);
+                window.postMessage({ type: "MARKET4U_EXTENSION_ACK" }, "*");
             });
         }
     });

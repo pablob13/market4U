@@ -159,98 +159,98 @@ else {
             
             console.log(`Iniciando inyección en ${store}...`, items);
             
-            // Mostrar banner de trabajo
-            const workBanner = document.createElement('div');
-            workBanner.innerHTML = `
-                <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
-                    🪄 <strong>Market4U:</strong> Preparando tu carrito en ${store.toUpperCase()}...
-                </div>
-            `;
-            document.body.appendChild(workBanner);
-            
-            // Construir el payload de artículos
-            const articulos = items.map(item => {
-                // El id viene como 'lac_123456789'
-                const ean = item.product.id.split('_')[1] || item.product.id;
-                return {
-                    cantidad: item.quantity,
-                    ean: ean,
-                    peso: 1,
-                    unidad: 0,
-                    descripcion: item.product.title
-                };
-            });
-            
-            // Intentar extraer el ID de la sucursal de localStorage (por si es necesario)
-            let succId = 0;
-            try {
-                // La Comer guarda datos en localStorage bajo varias llaves, intentamos encontrar la sucursal
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.toLowerCase().includes('sucursal')) {
-                        const val = localStorage.getItem(key);
-                        if (val && !isNaN(parseInt(val))) succId = parseInt(val);
-                    }
-                }
-            } catch(e) {}
-            
-            const payload = {
-                articulos: articulos,
-                clieId: 0,
-                clieIdA: 0,
-                listConsec: 0,
-                origen: "detarticulo",
-                pediBoquix: 0,
-                pediId: 0,
-                pediIdAnt: 0,
-                pediIdcap: 0,
-                sucFnt: 100,
-                succId: succId,
-                tipo: "TIENDA",
-                totArt: articulos.length,
-                usuaIdCl: 0,
-                usuaIdL: 0
-            };
-            
-            // Hacer la petición PUT
-            fetch('/lacomer-api/api/v1/public/carro/add?idSucVirtual=0&linea=0&sucVirtual=false', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json, text/plain, */*'
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                console.log("Respuesta de La Comer:", data);
-                
-                // Muchas APIs devuelven 200 OK pero con un error interno, revisemos eso
-                if (data && (data.error || data.exito === false || data.status === false)) {
-                    throw new Error("API retornó error interno: " + JSON.stringify(data));
-                }
-                
-                chrome.storage.local.remove(['pendingCart'], () => {
-                    workBanner.innerHTML = `
-                        <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
-                            ✅ <strong>¡Éxito!</strong> Carrito inyectado correctamente. Llevándote a la caja...
-                        </div>
-                    `;
-                    setTimeout(() => {
-                        // Forzamos recargar la página actual para que el carrito se actualice en el Header
-                        window.location.reload();
-                    }, 1500);
-                });
-            })
-            .catch(err => {
-                console.error("Error inyectando en La Comer", err);
+            // Retrasar la ejecución 2 segundos para permitir que Angular termine de cargar la página
+            setTimeout(() => {
+                // Mostrar banner de trabajo
+                const workBanner = document.createElement('div');
                 workBanner.innerHTML = `
-                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px;">
-                        ❌ Ocurrió un error. El servidor respondió: ${err.message || 'Error desconocido'}
-                        <button onclick="window.location.reload()" style="margin-left: 15px; padding: 5px 10px; border:none; border-radius:4px; background:white; color:#E41D2C; cursor:pointer;">Reintentar</button>
+                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
+                        🪄 <strong>Market4U:</strong> Preparando tu carrito en ${store.toUpperCase()}...
                     </div>
                 `;
-            });
+                document.body.appendChild(workBanner);
+                
+                // Construir el payload de artículos
+                const articulos = items.map(item => {
+                    const ean = item.product.id.split('_')[1] || item.product.id;
+                    return {
+                        cantidad: item.quantity,
+                        ean: ean,
+                        peso: 1,
+                        unidad: 0,
+                        descripcion: item.product.title
+                    };
+                });
+                
+                let succId = 0;
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.toLowerCase().includes('sucursal')) {
+                            const val = localStorage.getItem(key);
+                            if (val && !isNaN(parseInt(val))) succId = parseInt(val);
+                        }
+                    }
+                } catch(e) {}
+                
+                const payload = {
+                    articulos: articulos,
+                    clieId: 0,
+                    clieIdA: 0,
+                    listConsec: 0,
+                    origen: "detarticulo",
+                    pediBoquix: 0,
+                    pediId: 0,
+                    pediIdAnt: 0,
+                    pediIdcap: 0,
+                    sucFnt: 100,
+                    succId: succId,
+                    tipo: "TIENDA",
+                    totArt: articulos.length,
+                    usuaIdCl: 0,
+                    usuaIdL: 0
+                };
+                
+                console.log("Enviando Payload a La Comer:", payload);
+                
+                // Hacer la petición PUT
+                fetch('/lacomer-api/api/v1/public/carro/add?idSucVirtual=0&linea=0&sucVirtual=false', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/plain, */*'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Respuesta de La Comer:", data);
+                    
+                    if (data && (data.error || data.exito === false || data.status === false)) {
+                        throw new Error("API retornó error interno: " + JSON.stringify(data));
+                    }
+                    
+                    chrome.storage.local.remove(['pendingCart'], () => {
+                        workBanner.innerHTML = `
+                            <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
+                                ✅ <strong>¡Éxito!</strong> Carrito inyectado correctamente. Llevándote a la caja...
+                            </div>
+                        `;
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    });
+                })
+                .catch(err => {
+                    console.error("Error inyectando en La Comer", err);
+                    workBanner.innerHTML = `
+                        <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px;">
+                            ❌ Ocurrió un error. El servidor respondió: ${err.message || 'Error desconocido'}
+                            <button onclick="window.location.reload()" style="margin-left: 15px; padding: 5px 10px; border:none; border-radius:4px; background:white; color:#E41D2C; cursor:pointer;">Reintentar</button>
+                        </div>
+                    `;
+                });
+            }, 2500); // Dar 2.5 segundos de gracia
         }
         
         // --- LÓGICA JÜSTO ---

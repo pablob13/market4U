@@ -154,13 +154,96 @@ else {
         }
         
         // --- LÓGICA GRUPO LA COMER (Fresko, City Market, La Comer) ---
-        // Al compartir el mismo backend (Constructor.io), la lógica es idéntica para los 3.
         else if ((store === 'fresko' || store === 'lacomer' || store === 'citymarket') &&
             (window.location.hostname.includes('fresko.com.mx') || window.location.hostname.includes('lacomer.com.mx') || window.location.hostname.includes('citymarket.com.mx'))) {
             
             console.log(`Iniciando inyección en ${store}...`, items);
-            // TODO: Mañana - Implementar lógica de extracción de token/sesión para Grupo La Comer
-            // TODO: Mañana - Implementar ciclo de inyección y banners
+            
+            // Mostrar banner de trabajo
+            const workBanner = document.createElement('div');
+            workBanner.innerHTML = `
+                <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
+                    🪄 <strong>Market4U:</strong> Preparando tu carrito en ${store.toUpperCase()}...
+                </div>
+            `;
+            document.body.appendChild(workBanner);
+            
+            // Construir el payload de artículos
+            const articulos = items.map(item => {
+                // El id viene como 'lac_123456789'
+                const ean = item.product.id.split('_')[1] || item.product.id;
+                return {
+                    cantidad: item.quantity,
+                    ean: ean,
+                    peso: 1,
+                    unidad: 0,
+                    descripcion: item.product.title
+                };
+            });
+            
+            // Intentar extraer el ID de la sucursal de localStorage (por si es necesario)
+            let succId = 0;
+            try {
+                // La Comer guarda datos en localStorage bajo varias llaves, intentamos encontrar la sucursal
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.toLowerCase().includes('sucursal')) {
+                        const val = localStorage.getItem(key);
+                        if (val && !isNaN(parseInt(val))) succId = parseInt(val);
+                    }
+                }
+            } catch(e) {}
+            
+            const payload = {
+                articulos: articulos,
+                clieId: 0,
+                clieIdA: 0,
+                listConsec: 0,
+                origen: "detarticulo",
+                pediBoquix: 0,
+                pediId: 0,
+                pediIdAnt: 0,
+                pediIdcap: 0,
+                sucFnt: 100,
+                succId: succId,
+                tipo: "TIENDA",
+                totArt: articulos.length,
+                usuaIdCl: 0,
+                usuaIdL: 0
+            };
+            
+            // Hacer la petición PUT
+            fetch('/lacomer-api/api/v1/public/carro/add?idSucVirtual=0&linea=0&sucVirtual=false', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log("Respuesta de La Comer:", data);
+                chrome.storage.local.remove(['pendingCart'], () => {
+                    workBanner.innerHTML = `
+                        <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
+                            ✅ <strong>¡Éxito!</strong> Carrito inyectado correctamente. Llevándote a la caja...
+                        </div>
+                    `;
+                    setTimeout(() => {
+                        window.location.href = '/lacomer/#!/carrito';
+                    }, 1500);
+                });
+            })
+            .catch(err => {
+                console.error("Error inyectando en La Comer", err);
+                workBanner.innerHTML = `
+                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px;">
+                        ❌ Ocurrió un error al inyectar tu carrito. Por favor, asegúrate de haber seleccionado una sucursal.
+                        <button onclick="window.location.reload()" style="margin-left: 15px; padding: 5px 10px; border:none; border-radius:4px; background:white; color:#E41D2C; cursor:pointer;">Reintentar</button>
+                    </div>
+                `;
+            });
         }
         
         // --- LÓGICA JÜSTO ---

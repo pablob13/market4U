@@ -224,6 +224,12 @@ else {
             .then(res => res.json())
             .then(data => {
                 console.log("Respuesta de La Comer:", data);
+                
+                // Muchas APIs devuelven 200 OK pero con un error interno, revisemos eso
+                if (data && (data.error || data.exito === false || data.status === false)) {
+                    throw new Error("API retornó error interno: " + JSON.stringify(data));
+                }
+                
                 chrome.storage.local.remove(['pendingCart'], () => {
                     workBanner.innerHTML = `
                         <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
@@ -231,7 +237,8 @@ else {
                         </div>
                     `;
                     setTimeout(() => {
-                        window.location.href = '/lacomer/#!/carrito';
+                        // Forzamos recargar la página actual para que el carrito se actualice en el Header
+                        window.location.reload();
                     }, 1500);
                 });
             })
@@ -239,7 +246,7 @@ else {
                 console.error("Error inyectando en La Comer", err);
                 workBanner.innerHTML = `
                     <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px;">
-                        ❌ Ocurrió un error al inyectar tu carrito. Por favor, asegúrate de haber seleccionado una sucursal.
+                        ❌ Ocurrió un error. El servidor respondió: ${err.message || 'Error desconocido'}
                         <button onclick="window.location.reload()" style="margin-left: 15px; padding: 5px 10px; border:none; border-radius:4px; background:white; color:#E41D2C; cursor:pointer;">Reintentar</button>
                     </div>
                 `;

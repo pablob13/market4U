@@ -12,6 +12,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (store === 'fresko') url = 'https://www.fresko.com.mx/';
             if (store === 'soriana') url = 'https://www.soriana.com/carrito/';
             if (store === 'lacomer') url = 'https://www.lacomer.com.mx/';
+            if (store === 'citymarket') url = 'https://www.citymarket.com.mx/';
             
             if (url) {
                 chrome.tabs.create({ url });

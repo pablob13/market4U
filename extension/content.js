@@ -152,5 +152,21 @@ else {
                 }, 1500);
             });
         }
+        
+        // --- LÓGICA GRUPO LA COMER (Fresko, City Market, La Comer) ---
+        // Al compartir el mismo backend (Constructor.io), la lógica es idéntica para los 3.
+        else if ((store === 'fresko' || store === 'lacomer' || store === 'citymarket') &&
+            (window.location.hostname.includes('fresko.com.mx') || window.location.hostname.includes('lacomer.com.mx') || window.location.hostname.includes('citymarket.com.mx'))) {
+            
+            console.log(`Iniciando inyección en ${store}...`, items);
+            // TODO: Mañana - Implementar lógica de extracción de token/sesión para Grupo La Comer
+            // TODO: Mañana - Implementar ciclo de inyección y banners
+        }
+        
+        // --- LÓGICA JÜSTO ---
+        else if (store === 'justo' && window.location.hostname.includes('justo.mx')) {
+            console.log("Iniciando inyección en Jüsto...", items);
+            // TODO: Mañana - Implementar lógica GraphQL checkoutLinesAdd
+        }
     });
 }

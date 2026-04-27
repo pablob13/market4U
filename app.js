@@ -1177,7 +1177,7 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
             autoBtn.onclick = null;
             autoBtn.style.display = 'flex';
             autoBtn.style.pointerEvents = "auto";
-        } else if (storeKey === 'soriana' || storeKey === 'justo' || storeKey === 'fresko' || storeKey === 'lacomer') {
+        } else if (storeKey === 'soriana' || storeKey === 'justo' || storeKey === 'fresko' || storeKey === 'lacomer' || storeKey === 'citymarket') {
             // Trigger Extensión Chrome
             autoBtn.innerText = "Auto-checkout con Extensión 🪄";
             autoBtn.href = "#";

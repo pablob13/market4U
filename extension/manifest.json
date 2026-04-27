@@ -13,6 +13,7 @@
     "*://*.justo.mx/*",
     "*://*.fresko.com.mx/*",
     "*://*.lacomer.com.mx/*",
+    "*://*.citymarket.com.mx/*",
     "*://*.market4u.com/*",
     "*://localhost/*"
   ],
@@ -26,6 +27,7 @@
         "*://*.justo.mx/*",
         "*://*.fresko.com.mx/*",
         "*://*.lacomer.com.mx/*",
+        "*://*.citymarket.com.mx/*",
         "*://localhost/*",
         "*://*.vercel.app/*"
       ],

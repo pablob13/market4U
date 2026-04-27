@@ -69,7 +69,7 @@ else {
             if (!csrfToken) {
                 const banner = document.createElement('div');
                 banner.innerHTML = `
-                    <div style="position: fixed; top: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; gap: 20px;">
+                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; gap: 20px;">
                         <span>🛒 <strong>Market4U:</strong> ¡Pausa! Necesitamos que ingreses tu <strong>Código Postal</strong> o Inicies Sesión para poder inyectar tus productos.</span>
                         <button id="m4u-retry" style="padding: 8px 16px; background: white; color: #E41D2C; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;">Ya lo ingresé, Inyectar Carrito</button>
                     </div>
@@ -85,7 +85,7 @@ else {
             // Si hay token, mostramos banner de que estamos trabajando
             const workBanner = document.createElement('div');
             workBanner.innerHTML = `
-                <div style="position: fixed; top: 0; left: 0; width: 100%; background: #007a4c; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #007a4c; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
                     🪄 <strong>Market4U:</strong> Agregando productos mágicamente. Por favor no cierres esta pestaña...
                 </div>
             `;
@@ -130,7 +130,7 @@ else {
             // 3. Limpiar carrito y redirigir al checkout
             chrome.storage.local.remove(['pendingCart'], () => {
                 workBanner.innerHTML = `
-                    <div style="position: fixed; top: 0; left: 0; width: 100%; background: #007a4c; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #007a4c; color: white; padding: 15px; text-align: center; z-index: 999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
                         ✅ <strong>¡Éxito!</strong> Se inyectaron ${addedCount} productos a tu carrito. Llevándote a la caja...
                     </div>
                 `;

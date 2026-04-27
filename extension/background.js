@@ -9,10 +9,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // Abrir la pestaña del supermercado correspondiente
             let url = '';
             if (store === 'justo') url = 'https://justo.mx/cart/';
-            if (store === 'fresko') url = 'https://www.fresko.com.mx/';
+            if (store === 'fresko') url = 'https://www.fresko.com.mx/fresko/';
             if (store === 'soriana') url = 'https://www.soriana.com/carrito/';
-            if (store === 'lacomer') url = 'https://www.lacomer.com.mx/';
-            if (store === 'citymarket') url = 'https://www.citymarket.com.mx/';
+            if (store === 'lacomer') url = 'https://www.lacomer.com.mx/lacomer/';
+            if (store === 'citymarket') url = 'https://www.citymarket.com.mx/citymarket/';
             
             if (url) {
                 chrome.tabs.create({ url });

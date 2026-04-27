@@ -225,6 +225,7 @@ else {
                 .then(res => res.json())
                 .then(data => {
                     console.log("Respuesta de La Comer:", data);
+                    alert("RESPUESTA LA COMER: " + JSON.stringify(data));
                     
                     if (data && (data.error || data.exito === false || data.status === false)) {
                         throw new Error("API retornó error interno: " + JSON.stringify(data));
@@ -233,12 +234,9 @@ else {
                     chrome.storage.local.remove(['pendingCart'], () => {
                         workBanner.innerHTML = `
                             <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
-                                ✅ <strong>¡Éxito!</strong> Revisa la consola y Network. (No recargaremos la página).
+                                ✅ <strong>¡Éxito!</strong> Carrito inyectado.
                             </div>
                         `;
-                        // setTimeout(() => {
-                        //     window.location.reload();
-                        // }, 1500);
                     });
                 })
                 .catch(err => {

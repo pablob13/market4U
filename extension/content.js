@@ -50,13 +50,26 @@ else {
                 }
             }
             
-            // Si la página actual no tiene formularios (ej. carrito vacío), lo robamos haciendo un fetch a la página principal
+            // Si no está en un form visible, buscarlo dentro de los scripts incrustados de Soriana
             if (!csrfToken) {
-                console.log("No se encontró token en el DOM. Obteniendo de la página principal...");
+                const htmlStr = document.documentElement.innerHTML;
+                // Buscar patrones comunes como: "csrf_token":"ABC..." o csrf_token="ABC..." o name="csrf_token" value="ABC..."
+                const tokenMatch = htmlStr.match(/csrf_token["']?\s*[:=]\s*["']([^"']+)["']/i) 
+                                || htmlStr.match(/name=["']csrf_token["']\s+value=["']([^"']+)["']/i);
+                if (tokenMatch && tokenMatch[1]) {
+                    csrfToken = tokenMatch[1];
+                    console.log("Token extraído desde el código fuente inline!");
+                }
+            }
+            
+            // Si todo falla, intentamos sacarlo de la portada
+            if (!csrfToken) {
+                console.log("No se encontró token en el DOM local. Obteniendo de la página principal...");
                 try {
                     const homeRes = await fetch('/');
                     const homeText = await homeRes.text();
-                    const match = homeText.match(/name="csrf_token"\s+value="([^"]+)"/);
+                    const match = homeText.match(/name=["']csrf_token["']\s+value=["']([^"']+)["']/i)
+                               || homeText.match(/csrf_token["']?\s*[:=]\s*["']([^"']+)["']/i);
                     if (match && match[1]) {
                         csrfToken = match[1];
                         console.log("Token extraído exitosamente del background!");

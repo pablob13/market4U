@@ -172,23 +172,40 @@ else {
                 
                 // Construir el payload de artículos
                 const articulos = items.map(item => {
-                    const ean = item.product.id.split('_')[1] || item.product.id;
+                    // Prevenir undefined si el ID no tiene guión bajo
+                    let ean = item.product.id;
+                    if (ean && ean.includes('_')) {
+                        ean = ean.split('_')[1];
+                    }
                     return {
                         cantidad: item.quantity,
                         ean: ean,
                         peso: 1,
                         unidad: 0,
-                        descripcion: item.product.title
+                        descripcion: item.product.title || ""
                     };
                 });
                 
-                let succId = 0;
+                let succId = 287; // Fallback a Coyoacán por defecto si falla la extracción
                 try {
+                    // Buscar exhaustivamente en el localStorage
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
-                        if (key && key.toLowerCase().includes('sucursal')) {
-                            const val = localStorage.getItem(key);
-                            if (val && !isNaN(parseInt(val))) succId = parseInt(val);
+                        const val = localStorage.getItem(key);
+                        
+                        if (val) {
+                            try {
+                                const obj = JSON.parse(val);
+                                // Buscar patrones comunes de ID de sucursal en Angular/Vue
+                                if (obj && obj.idSucursal) succId = parseInt(obj.idSucursal);
+                                else if (obj && obj.succId) succId = parseInt(obj.succId);
+                                else if (obj && obj.sucursal && obj.sucursal.id) succId = parseInt(obj.sucursal.id);
+                            } catch(e) {}
+                            
+                            // Búsqueda directa si es un string simple bajo una llave sugerente
+                            if (key.toLowerCase().includes('sucursal') && !isNaN(parseInt(val))) {
+                                succId = parseInt(val);
+                            }
                         }
                     }
                 } catch(e) {}
@@ -200,6 +217,7 @@ else {
                     listConsec: 0,
                     origen: "detarticulo",
                     pediBoquix: 0,
+                    pediGroup: 0,
                     pediId: 0,
                     pediIdAnt: 0,
                     pediIdcap: 0,
@@ -207,6 +225,7 @@ else {
                     succId: succId,
                     tipo: "TIENDA",
                     totArt: articulos.length,
+                    usuaId: 0,
                     usuaIdCl: 0,
                     usuaIdL: 0
                 };
@@ -225,18 +244,20 @@ else {
                 .then(res => res.json())
                 .then(data => {
                     console.log("Respuesta de La Comer:", data);
-                    alert("RESPUESTA LA COMER: " + JSON.stringify(data));
                     
-                    if (data && (data.error || data.exito === false || data.status === false)) {
+                    if (data && (data.error || data.status === "INTERNAL_SERVER_ERROR" || data.exito === false || data.status === false)) {
                         throw new Error("API retornó error interno: " + JSON.stringify(data));
                     }
                     
                     chrome.storage.local.remove(['pendingCart'], () => {
                         workBanner.innerHTML = `
                             <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
-                                ✅ <strong>¡Éxito!</strong> Carrito inyectado.
+                                ✅ <strong>¡Éxito!</strong> Carrito inyectado. Llevándote a la caja...
                             </div>
                         `;
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
                     });
                 })
                 .catch(err => {

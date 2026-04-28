@@ -211,23 +211,15 @@ else {
                 } catch(e) {}
                 
                 const payload = {
-                    articulos: articulos,
-                    clieId: 0,
-                    clieIdA: 0,
-                    listConsec: 0,
-                    origen: "detarticulo",
-                    pediBoquix: 0,
                     pediGroup: 0,
                     pediId: 0,
-                    pediIdAnt: 0,
-                    pediIdcap: 0,
-                    sucFnt: 100,
-                    succId: succId,
                     tipo: "TIENDA",
-                    totArt: articulos.length,
+                    clieId: 0,
+                    succId: succId,
+                    sucFnt: 100,
                     usuaId: 0,
-                    usuaIdCl: 0,
-                    usuaIdL: 0
+                    clieIdA: 0,
+                    articulos: articulos
                 };
                 
                 console.log("Enviando Payload a La Comer:", payload);

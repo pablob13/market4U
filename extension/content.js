@@ -243,45 +243,70 @@ else {
                 
                 console.log("Enviando Payload a La Comer:", payload);
                 
-                // Hacer la petición PUT
-                fetch('/lacomer-api/api/v1/public/carro/add?idSucVirtual=0&linea=0&sucVirtual=false', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json, text/plain, */*',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Respuesta de La Comer:", data);
+                // Escuchar la respuesta del script inyectado
+                window.addEventListener('message', function listener(event) {
+                    if (event.source !== window || !event.data || event.data.type !== 'LACOMER_INJECTION_RESULT') return;
                     
-                    if (data && (data.error || data.status === "INTERNAL_SERVER_ERROR" || data.exito === false || data.status === false)) {
-                        throw new Error("API retornó error interno: " + JSON.stringify(data));
+                    window.removeEventListener('message', listener);
+                    workBanner.remove();
+                    
+                    try {
+                        const data = JSON.parse(event.data.response);
+                        console.log("Respuesta de La Comer (Inyectada):", data);
+                        
+                        if (event.data.status !== 200 || (data && (data.error || data.status === "INTERNAL_SERVER_ERROR" || data.exito === false || data.status === false))) {
+                            throw new Error(data.message || data.error || data.status || "API retornó error interno: " + JSON.stringify(data));
+                        }
+                        
+                        chrome.storage.local.remove(['pendingCart'], () => {
+                            const s = document.createElement('div');
+                            s.style.cssText = "position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);";
+                            s.innerHTML = "✅ <strong>¡Éxito!</strong> Carrito inyectado. Llevándote a la caja...";
+                            document.body.appendChild(s);
+                            
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        });
+                        
+                    } catch (err) {
+                        console.error("Error inyectando en La Comer", err);
+                        const e = document.createElement('div');
+                        e.style.cssText = "position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px;";
+                        e.innerHTML = "❌ Ocurrió un error. El servidor respondió: " + (err.message || 'Error desconocido') + "<button onclick='window.location.reload()' style='margin-left: 15px; padding: 5px 10px; border:none; border-radius:4px; background:white; color:#E41D2C; cursor:pointer;'>Reintentar</button>";
+                        document.body.appendChild(e);
                     }
-                    
-                    chrome.storage.local.remove(['pendingCart'], () => {
-                        workBanner.innerHTML = `
-                            <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #F17022; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
-                                ✅ <strong>¡Éxito!</strong> Carrito inyectado. Llevándote a la caja...
-                            </div>
-                        `;
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
-                    });
-                })
-                .catch(err => {
-                    console.error("Error inyectando en La Comer", err);
-                    workBanner.innerHTML = `
-                        <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px;">
-                            ❌ Ocurrió un error. El servidor respondió: ${err.message || 'Error desconocido'}
-                            <button onclick="window.location.reload()" style="margin-left: 15px; padding: 5px 10px; border:none; border-radius:4px; background:white; color:#E41D2C; cursor:pointer;">Reintentar</button>
-                        </div>
-                    `;
                 });
+
+                // Inyectar script en el contexto de la página web para heredar monkeypatching de Dynatrace y cookies
+                const scriptCode = \`
+                    (function() {
+                        try {
+                            const payload = \${JSON.stringify(payload)};
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('PUT', '/lacomer-api/api/v1/public/carro/add?idSucVirtual=0&linea=0&sucVirtual=false', true);
+                            xhr.setRequestHeader('Content-Type', 'application/json');
+                            xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
+                            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                            xhr.withCredentials = true;
+                            
+                            xhr.onload = function() {
+                                window.postMessage({ type: 'LACOMER_INJECTION_RESULT', status: xhr.status, response: xhr.responseText }, '*');
+                            };
+                            xhr.onerror = function() {
+                                window.postMessage({ type: 'LACOMER_INJECTION_RESULT', status: 500, response: '{"error": "XHR Network Error"}' }, '*');
+                            };
+                            xhr.send(JSON.stringify(payload));
+                        } catch(err) {
+                            window.postMessage({ type: 'LACOMER_INJECTION_RESULT', status: 500, response: JSON.stringify({error: err.toString()}) }, '*');
+                        }
+                    })();
+                \`;
+                
+                const scriptEl = document.createElement('script');
+                scriptEl.textContent = scriptCode;
+                (document.head || document.documentElement).appendChild(scriptEl);
+                scriptEl.remove();
             }, 2500); // Dar 2.5 segundos de gracia
         }
         

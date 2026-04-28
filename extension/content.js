@@ -178,11 +178,11 @@ else {
                         ean = ean.split('_')[1];
                     }
                     return {
-                        cantidad: item.quantity,
-                        ean: ean,
+                        cantidad: parseInt(item.quantity) || 1,
+                        ean: String(ean || "0"),
                         peso: 1,
                         unidad: 0,
-                        descripcion: item.product.title || ""
+                        descripcion: item.product.title ? String(item.product.title).substring(0, 100) : ""
                     };
                 });
                 
@@ -210,12 +210,14 @@ else {
                     }
                 } catch(e) {}
                 
+                if (isNaN(succId) || !succId) succId = 287;
+                
                 const payload = {
                     pediGroup: 0,
                     pediId: 0,
                     tipo: "TIENDA",
                     clieId: 0,
-                    succId: succId,
+                    succId: parseInt(succId),
                     sucFnt: 100,
                     usuaId: 0,
                     clieIdA: 0,
@@ -229,8 +231,10 @@ else {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json, text/plain, */*'
+                        'Accept': 'application/json, text/plain, */*',
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
+                    credentials: 'include',
                     body: JSON.stringify(payload)
                 })
                 .then(res => res.json())

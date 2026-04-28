@@ -186,40 +186,57 @@ else {
                     };
                 });
                 
-                let succId = 287; // Fallback a Coyoacán por defecto si falla la extracción
+                let succId = 287;
+                let clieId = 0;
+                let usuaId = 0;
+                let pediId = 0;
+                let pediGroup = 0;
+                
                 try {
-                    // Buscar exhaustivamente en el localStorage
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        const val = localStorage.getItem(key);
-                        
-                        if (val) {
-                            try {
-                                const obj = JSON.parse(val);
-                                // Buscar patrones comunes de ID de sucursal en Angular/Vue
-                                if (obj && obj.idSucursal) succId = parseInt(obj.idSucursal);
-                                else if (obj && obj.succId) succId = parseInt(obj.succId);
-                                else if (obj && obj.sucursal && obj.sucursal.id) succId = parseInt(obj.sucursal.id);
-                            } catch(e) {}
-                            
-                            // Búsqueda directa si es un string simple bajo una llave sugerente
-                            if (key.toLowerCase().includes('sucursal') && !isNaN(parseInt(val))) {
-                                succId = parseInt(val);
+                    const searchObj = (val) => {
+                        if (!val || !val.includes('{')) return;
+                        try {
+                            const obj = JSON.parse(val);
+                            if (obj && typeof obj === 'object') {
+                                if (obj.idSucursal) succId = parseInt(obj.idSucursal);
+                                else if (obj.succId) succId = parseInt(obj.succId);
+                                else if (obj.sucursal && obj.sucursal.id) succId = parseInt(obj.sucursal.id);
+                                
+                                if (obj.clieId) clieId = parseInt(obj.clieId);
+                                if (obj.usuaId) usuaId = parseInt(obj.usuaId);
+                                if (obj.pediId) pediId = parseInt(obj.pediId);
+                                if (obj.pediGroup) pediGroup = parseInt(obj.pediGroup);
+                                
+                                // Recursión superficial para estados anidados (ej. Vuex/Angular)
+                                for (let k in obj) {
+                                    if (obj[k] && typeof obj[k] === 'object') {
+                                        if (obj[k].clieId) clieId = parseInt(obj[k].clieId);
+                                        if (obj[k].usuaId) usuaId = parseInt(obj[k].usuaId);
+                                        if (obj[k].succId) succId = parseInt(obj[k].succId);
+                                    }
+                                }
                             }
-                        }
-                    }
+                        } catch(e) {}
+                    };
+
+                    for (let i = 0; i < localStorage.length; i++) searchObj(localStorage.getItem(localStorage.key(i)));
+                    for (let i = 0; i < sessionStorage.length; i++) searchObj(sessionStorage.getItem(sessionStorage.key(i)));
+                    
+                    document.cookie.split(';').forEach(c => {
+                        try { searchObj(decodeURIComponent(c.split('=')[1])); } catch(e) {}
+                    });
                 } catch(e) {}
                 
                 if (isNaN(succId) || !succId) succId = 287;
                 
                 const payload = {
-                    pediGroup: 0,
-                    pediId: 0,
+                    pediGroup: pediGroup || 0,
+                    pediId: pediId || 0,
                     tipo: "TIENDA",
-                    clieId: 0,
+                    clieId: clieId || 0,
                     succId: parseInt(succId),
                     sucFnt: 100,
-                    usuaId: 0,
+                    usuaId: usuaId || 0,
                     clieIdA: 0,
                     articulos: articulos
                 };

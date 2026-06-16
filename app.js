@@ -1676,10 +1676,8 @@ const runMLSearch = async (query, isPagination = false) => {
         const mergedScraped = mergeProducts(combinedQueue);
         const processedML = processProducts(mergedScraped);
         
-        // Log real-time prices natively into Supabase database
-        if (MLService && typeof MLService.savePriceHistory === 'function') {
-            MLService.savePriceHistory(processedML);
-        }
+        // Nota: El almacenamiento y registro de precios ahora se realiza en lotes (bulk)
+        // directamente en el servidor (api/search.js) para optimizar el rendimiento y la red.
 
         // Calcular resultados locales actuales para deduplicar por título
         const localQuery = query.toLowerCase();

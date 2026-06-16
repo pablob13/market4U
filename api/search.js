@@ -1,3 +1,7 @@
+const CONFIG = require('../config.js');
+const supabaseUrl = process.env.SUPABASE_URL || CONFIG.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || CONFIG.SUPABASE_ANON_KEY;
+
 const fetchSoriana = async (q, limit, offset) => {
     try {
         const querySafe = encodeURIComponent(q).replace(/%20/g, '+');
@@ -264,6 +268,98 @@ const fetchJusto = async (q, limit, offset) => {
     }
 };
 
+const saveProductsToSupabase = async (products) => {
+    if (!supabaseUrl || !supabaseAnonKey || products.length === 0) return;
+    
+    try {
+        // Prepare products payload for bulk upsert
+        // Table: products (ml_id, title, category, image_url, brand)
+        const productsPayload = products.map(p => ({
+            ml_id: p.id,
+            title: p.title,
+            image_url: p.thumbnail || null,
+            brand: p.brand || null,
+            category: 'Supermercado'
+        }));
+
+        // Bulk upsert to Supabase
+        const upsertRes = await fetch(`${supabaseUrl}/rest/v1/products`, {
+            method: 'POST',
+            headers: {
+                'apikey': supabaseAnonKey,
+                'Authorization': `Bearer ${supabaseAnonKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates, return=representation'
+            },
+            body: JSON.stringify(productsPayload)
+        });
+
+        if (!upsertRes.ok) {
+            const errBody = await upsertRes.text();
+            console.warn('[Supabase Sync] Products upsert failed:', upsertRes.status, errBody);
+            return;
+        }
+
+        const upsertedData = await upsertRes.json();
+        if (!Array.isArray(upsertedData) || upsertedData.length === 0) return;
+
+        // Map ml_id to database generated UUID
+        const uuidMap = new Map();
+        for (const row of upsertedData) {
+            uuidMap.set(row.ml_id, row.id);
+        }
+
+        // Prepare price history payload for bulk insert
+        const historyPayload = [];
+        for (const p of products) {
+            const productUuid = uuidMap.get(p.id);
+            if (!productUuid) continue;
+
+            let storeId = p.seller.toLowerCase().replace(/\s+/g, '');
+            // Map store display names to database store IDs
+            if (storeId === 'lacomer') storeId = 'lacomer';
+            else if (storeId === 'citymarket') storeId = 'citymarket';
+            else if (storeId === 'fresko') storeId = 'fresko';
+            else if (storeId === 'soriana') storeId = 'soriana';
+            else if (storeId === 'chedraui') storeId = 'chedraui';
+            else if (storeId === 'heb') storeId = 'heb';
+            else if (storeId === 'justo') storeId = 'justo';
+
+            historyPayload.push({
+                product_id: productUuid,
+                store_id: storeId,
+                price: p.price,
+                shipping: 0,
+                in_stock: true,
+                source_url: p.permalink || null
+            });
+        }
+
+        if (historyPayload.length === 0) return;
+
+        // Bulk insert price history
+        const historyRes = await fetch(`${supabaseUrl}/rest/v1/price_history`, {
+            method: 'POST',
+            headers: {
+                'apikey': supabaseAnonKey,
+                'Authorization': `Bearer ${supabaseAnonKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(historyPayload)
+        });
+
+        if (!historyRes.ok) {
+            const errBody = await historyRes.text();
+            console.warn('[Supabase Sync] Price history insert failed:', historyRes.status, errBody);
+        } else {
+            console.log(`[Supabase Sync] Successfully saved ${upsertedData.length} products and ${historyPayload.length} price entries.`);
+        }
+
+    } catch (err) {
+        console.warn('[Supabase Sync] Error during saving products:', err.message);
+    }
+};
+
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -296,6 +392,15 @@ module.exports = async function handler(req, res) {
         for (let i = 0; i < maxLen; i++) {
             for (const source of sources) {
                 if (source[i]) merged.push(source[i]);
+            }
+        }
+
+        // Guardar los productos recolectados en Supabase
+        if (merged.length > 0) {
+            try {
+                await saveProductsToSupabase(merged);
+            } catch (saveErr) {
+                console.error('[Supabase Sync] Error during saveProductsToSupabase execution:', saveErr);
             }
         }
 

@@ -25,3 +25,7 @@ const CONFIG = {
     APP_VERSION:   '2.0.0',
     IS_PRODUCTION: false,  // Cambia a true cuando despliegues en Vercel
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CONFIG;
+}

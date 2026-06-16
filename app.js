@@ -939,7 +939,7 @@ window.openProductModal = async (id, tab = 'stores') => {
                 `;
             }).join('');
             
-            const curP = product.bestOffer.price;
+            const curP = (product.bestOffer && product.bestOffer.price) || 0;
             let vals = [curP, curP, curP, curP];
             
             if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
@@ -948,7 +948,7 @@ window.openProductModal = async (id, tab = 'stores') => {
                     MLService.getRealHistory(product.id),
                     new Promise(resolve => setTimeout(() => resolve(null), 1500))
                 ]);
-                if (rawHistory && rawHistory.length > 0) {
+                if (rawHistory && rawHistory.length > 0 && product.bestOffer) {
                     // Filter specifically for the history of the winning store
                     const storeHistory = rawHistory.filter(h => h.store_id === product.bestOffer.store);
                     if (storeHistory.length > 0) {
@@ -1010,7 +1010,7 @@ window.openProductModal = async (id, tab = 'stores') => {
                                 <div class="product-info" style="padding: 1rem;">
                                     <h3 class="product-title" style="font-size: 0.95rem;">${comp.title}</h3>
                                     <div class="product-price">
-                                        <span class="price-amount">${formatCurrency(comp.bestOffer.price)}</span>
+                                        <span class="price-amount">${formatCurrency(comp.bestOffer ? comp.bestOffer.price : 0)}</span>
                                     </div>
                                     <button onclick="openProductModal('${comp.id}', 'brands')" class="btn-primary" style="width:100%; margin-top:0.5rem; justify-content:center; padding: 0.5rem; font-size:0.85rem;">Analizar Producto</button>
                                     
@@ -1019,7 +1019,7 @@ window.openProductModal = async (id, tab = 'stores') => {
                                             Ver Precios por Tienda <span style="color:var(--text-tertiary); font-size:0.7rem;">&#9662;</span>
                                         </summary>
                                         <ul style="list-style: none; padding: 0; margin: 0; background: var(--bg-primary); border-top: 1px solid var(--border-color);">
-                                            ${comp.sortedOffers.map(coff => {
+                                            ${(comp.sortedOffers || []).map(coff => {
                                                 const hasPromoCoff = coff.list_price && coff.list_price > coff.price;
                                                 const coffDiscount = hasPromoCoff ? Math.round((1 - coff.price / coff.list_price) * 100) : 0;
                                                 return `

@@ -945,7 +945,7 @@ window.openProductModal = async (id, tab = 'stores') => {
             if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
                 // Promise race to prevent total freeze if Supabase hangs on auth locks
                 const rawHistory = await Promise.race([
-                    MLService.getRealHistory(product.id),
+                    MLService.getRealHistory(product.ml_id || product.id),
                     new Promise(resolve => setTimeout(() => resolve(null), 1500))
                 ]);
                 if (rawHistory && rawHistory.length > 0 && product.bestOffer) {

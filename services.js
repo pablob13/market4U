@@ -206,7 +206,7 @@ const MLService = {
 
             return {
                 id:          item.id,
-                ml_id:       null, // no longer applies
+                ml_id:       item.canonical_id || null,
                 sku_id:      item.sku_id || null,
                 permalink:   item.permalink || null,
                 title,

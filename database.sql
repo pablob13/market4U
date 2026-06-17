@@ -29,7 +29,12 @@ insert into stores (id, name, logo, color, bg_color, base_url) values
   ('soriana',      'Soriana',       'S',  '#ffffff', '#e32726', 'https://www.soriana.com'),
   ('chedraui',     'Chedraui',      'C',  '#ffffff', '#f37021', 'https://www.superc.com'),
   ('amazon',       'Amazon Súper',  'A',  '#000000', '#ff9900', 'https://www.amazon.com.mx'),
-  ('mercadolibre', 'Mercado Libre', 'ML', '#2d3277', '#ffe600', 'https://www.mercadolibre.com.mx')
+  ('mercadolibre', 'Mercado Libre', 'ML', '#2d3277', '#ffe600', 'https://www.mercadolibre.com.mx'),
+  ('lacomer',      'La Comer',      'LC', '#ffffff', '#F17022', 'https://www.lacomer.com.mx'),
+  ('fresko',       'Fresko',        'FR', '#ffffff', '#7ab800', 'https://www.lacomer.com.mx'),
+  ('citymarket',   'City Market',   'CM', '#ffffff', '#000000', 'https://www.lacomer.com.mx'),
+  ('justo',        'Jüsto',         'JU', '#ffffff', '#007a4c', 'https://justo.mx'),
+  ('heb',          'HEB',           'HEB', '#ffffff', '#e31b23', 'https://www.heb.com.mx')
 on conflict (id) do nothing;
 
 -- =============================================

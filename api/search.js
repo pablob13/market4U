@@ -268,22 +268,129 @@ const fetchJusto = async (q, limit, offset) => {
     }
 };
 
+const generateCanonicalKey = (title, brand) => {
+    let clean = title.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, '');
+    
+    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|grs|gr|mg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
+    const sizeMatch = clean.match(sizeRegex);
+    const size = sizeMatch ? sizeMatch[0].replace(/\s/g, '').replace('lt', 'l') : '';
+    
+    let text = clean;
+    if (sizeMatch) {
+        text = text.replace(sizeMatch[0], '');
+    }
+    
+    const stopWords = new Set(['de', 'con', 'para', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'y', 'o', 'al', 'del']);
+    const tokens = text.split(/\s+/)
+        .map(t => t.trim())
+        .filter(t => t.length > 2 && !stopWords.has(t))
+        .sort();
+        
+    const base = tokens.join('-');
+    const brandPrefix = brand ? brand.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' : '';
+    const key = `${brandPrefix}${base}${size ? '-' + size : ''}`;
+    
+    return key.substring(0, 100) || 'producto-general';
+};
+
+const backendMergeProducts = (products) => {
+    const merged = [];
+    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|grs|gr|mg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
+    const qtyRegex = /(?:([0-9]+)\s*(?:pack|botellas|latas|piezas|pz|pzas|x))/i;
+
+    const extractSize = (title) => {
+        const match = title.toLowerCase().match(sizeRegex);
+        if (!match) return null;
+        let num = match[1].replace(/\s/g, '');
+        let unit = match[2].replace('grs', 'g').replace('gr', 'g').replace('lt', 'l');
+        return num + unit;
+    };
+    
+    const extractQuantity = (title) => {
+        const match = title.toLowerCase().match(qtyRegex);
+        return match ? parseInt(match[1]) : 1; 
+    };
+
+    const getTokens = (title) => {
+        let clean = title.toLowerCase().replace(sizeRegex, ' ').replace(qtyRegex, ' ');
+        clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return clean.replace(/[^a-z0-9]/g, ' ').split(' ').filter(x => x.length > 2);
+    };
+
+    for (const p of products) {
+        const pSize = extractSize(p.title);
+        const pQty = extractQuantity(p.title);
+        const pTokens = getTokens(p.title);
+        
+        const storeKey = p.seller.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
+        const productWithOffer = {
+            ...p,
+            offers: p.offers || [{
+                store: storeKey,
+                price: p.price,
+                list_price: p.list_price || p.price,
+                shipping: 0,
+                url: p.permalink
+            }]
+        };
+
+        let foundMatch = null;
+        for (const existing of merged) {
+            const exSize = extractSize(existing.title);
+            const exQty = extractQuantity(existing.title);
+            
+            if (pSize && exSize && pSize !== exSize) continue;
+            if (pQty !== exQty) continue;
+
+            const exTokens = getTokens(existing.title);
+            const intersection = pTokens.filter(t => exTokens.includes(t)).length;
+            const minTokens = Math.min(pTokens.length, exTokens.length);
+            
+            const pStores = productWithOffer.offers.map(o => o.store);
+            const exStores = existing.offers.map(o => o.store);
+            const sharesStore = pStores.some(s => exStores.includes(s));
+            
+            const threshold = sharesStore ? 0.85 : 0.55;
+
+            if (minTokens > 0 && (intersection / minTokens >= threshold)) {
+                foundMatch = existing;
+                break;
+            }
+        }
+        
+        if (foundMatch) {
+            foundMatch.offers.push(...productWithOffer.offers);
+        } else {
+            merged.push(productWithOffer);
+        }
+    }
+    return merged;
+};
+
 const saveProductsToSupabase = async (products) => {
     if (!supabaseUrl || !supabaseAnonKey || products.length === 0) return;
     
     try {
-        // Prepare products payload for bulk upsert
-        // Table: products (ml_id, title, category, image_url, brand)
-        const productsPayload = products.map(p => ({
-            ml_id: p.id,
-            title: p.title,
-            image_url: p.thumbnail || null,
-            brand: p.brand || null,
-            category: 'Supermercado'
-        }));
+        // 1. Mergear los productos con Jaccard en el backend para unificación de catálogo
+        const mergedProducts = backendMergeProducts(products);
+
+        // Prepare products payload for bulk upsert using the canonical key as ml_id
+        const productsPayload = mergedProducts.map(p => {
+            const canonicalKey = generateCanonicalKey(p.title, p.brand);
+            return {
+                ml_id: canonicalKey, // Usar canonicalKey como ml_id único
+                title: p.title,
+                image_url: p.thumbnail || p.image || null,
+                brand: p.brand || null,
+                category: 'Supermercado'
+            };
+        });
 
         // Bulk upsert to Supabase
-        const upsertRes = await fetch(`${supabaseUrl}/rest/v1/products`, {
+        const upsertRes = await fetch(`${supabaseUrl}/rest/v1/products?on_conflict=ml_id`, {
             method: 'POST',
             headers: {
                 'apikey': supabaseAnonKey,
@@ -311,28 +418,21 @@ const saveProductsToSupabase = async (products) => {
 
         // Prepare price history payload for bulk insert
         const historyPayload = [];
-        for (const p of products) {
-            const productUuid = uuidMap.get(p.id);
+        for (const p of mergedProducts) {
+            const canonicalKey = generateCanonicalKey(p.title, p.brand);
+            const productUuid = uuidMap.get(canonicalKey);
             if (!productUuid) continue;
 
-            let storeId = p.seller.toLowerCase().replace(/\s+/g, '');
-            // Map store display names to database store IDs
-            if (storeId === 'lacomer') storeId = 'lacomer';
-            else if (storeId === 'citymarket') storeId = 'citymarket';
-            else if (storeId === 'fresko') storeId = 'fresko';
-            else if (storeId === 'soriana') storeId = 'soriana';
-            else if (storeId === 'chedraui') storeId = 'chedraui';
-            else if (storeId === 'heb') storeId = 'heb';
-            else if (storeId === 'justo') storeId = 'justo';
-
-            historyPayload.push({
-                product_id: productUuid,
-                store_id: storeId,
-                price: p.price,
-                shipping: 0,
-                in_stock: true,
-                source_url: p.permalink || null
-            });
+            for (const o of p.offers) {
+                historyPayload.push({
+                    product_id: productUuid,
+                    store_id: o.store,
+                    price: o.price,
+                    shipping: o.shipping || 0,
+                    in_stock: true,
+                    source_url: o.url || null
+                });
+            }
         }
 
         if (historyPayload.length === 0) return;
@@ -393,6 +493,11 @@ module.exports = async function handler(req, res) {
             for (const source of sources) {
                 if (source[i]) merged.push(source[i]);
             }
+        }
+
+        // Asignar canonical_id a cada producto para enlace consistente
+        for (const p of merged) {
+            p.canonical_id = generateCanonicalKey(p.title, p.brand);
         }
 
         // Guardar los productos recolectados en Supabase

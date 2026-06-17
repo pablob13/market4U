@@ -39,5 +39,7 @@ jobs:
           version: latest
 
       - name: Deploy ml-search Edge Function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase functions deploy ml-search --project-ref yiolvrhxjkozebcorqep --no-verify-jwt --access-token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          supabase functions deploy ml-search --project-ref yiolvrhxjkozebcorqep --no-verify-jwt

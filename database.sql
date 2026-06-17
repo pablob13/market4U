@@ -38,14 +38,37 @@ insert into stores (id, name, logo, color, bg_color, base_url) values
 on conflict (id) do nothing;
 
 -- =============================================
+-- TABLA: categories (Categorías)
+-- =============================================
+create table if not exists categories (
+  id          text primary key,
+  name        text not null,
+  parent_id   text references categories(id) on delete cascade,
+  icon        text,
+  created_at  timestamptz default now()
+);
+
+-- Insertar algunas categorías base
+insert into categories (id, name, parent_id, icon) values
+  ('supermercado', 'Supermercado', null, 'shopping_cart'),
+  ('lacteos-y-huevos', 'Lácteos y Huevos', 'supermercado', 'egg'),
+  ('frutas-y-verduras', 'Frutas y Verduras', 'supermercado', 'eco'),
+  ('bebidas', 'Bebidas', 'supermercado', 'local_drink'),
+  ('despensa', 'Despensa', 'supermercado', 'kitchen'),
+  ('limpieza', 'Limpieza', 'supermercado', 'cleaning_services'),
+  ('higiene-y-belleza', 'Higiene y Belleza', 'supermercado', 'face')
+on conflict (id) do nothing;
+
+-- =============================================
 -- TABLA: products (Catálogo de Productos)
 -- =============================================
 create table if not exists products (
   id          uuid primary key default uuid_generate_v4(),
-  ml_id       text unique,                    -- ID de Mercado Libre
+  ml_id       text unique,                    -- ID de Mercado Libre / Clave Canónica
   barcode     text,                           -- Código de barras EAN/UPC
   title       text not null,
   category    text not null default 'General',
+  category_id text references categories(id) on delete set null,
   description text,
   image_url   text,
   brand       text,
@@ -90,7 +113,6 @@ create table if not exists saved_lists (
   id          uuid primary key default uuid_generate_v4(),
   user_id     uuid references auth.users(id) on delete cascade,
   name        text not null,
-  items       jsonb not null default '[]',   -- [{product_id, quantity}]
   created_at  timestamptz default now()
 );
 
@@ -98,6 +120,28 @@ create table if not exists saved_lists (
 alter table saved_lists enable row level security;
 create policy "Users see own lists" on saved_lists
   for all using (auth.uid() = user_id);
+
+-- =============================================
+-- TABLA: list_items (Productos de Listas de Compra)
+-- =============================================
+create table if not exists list_items (
+  id          uuid primary key default uuid_generate_v4(),
+  list_id     uuid references saved_lists(id) on delete cascade,
+  product_id  uuid references products(id) on delete cascade,
+  quantity    integer not null default 1 check (quantity > 0),
+  created_at  timestamptz default now(),
+  unique (list_id, product_id)
+);
+
+alter table list_items enable row level security;
+create policy "Users manage own list items" on list_items
+  for all using (
+    exists (
+      select 1 from saved_lists
+      where saved_lists.id = list_items.list_id
+      and saved_lists.user_id = auth.uid()
+    )
+  );
 
 -- =============================================
 -- TABLA: addresses (Direcciones de Envío)
@@ -167,3 +211,35 @@ $$;
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
+
+-- =============================================
+-- TABLA: product_favorites (Favoritos)
+-- =============================================
+create table if not exists product_favorites (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references auth.users(id) on delete cascade,
+  product_id  uuid references products(id) on delete cascade,
+  created_at  timestamptz default now(),
+  unique (user_id, product_id)
+);
+
+alter table product_favorites enable row level security;
+create policy "Users manage own favorites" on product_favorites
+  for all using (auth.uid() = user_id);
+
+-- =============================================
+-- TABLA: user_searches (Historial de Búsquedas)
+-- =============================================
+create table if not exists user_searches (
+  id            uuid primary key default uuid_generate_v4(),
+  user_id       uuid references auth.users(id) on delete cascade,
+  query         text not null,
+  results_count integer default 0,
+  searched_at   timestamptz default now()
+);
+
+alter table user_searches enable row level security;
+create policy "Users see own searches" on user_searches
+  for select using (auth.uid() = user_id or user_id is null);
+create policy "Users insert own searches" on user_searches
+  for insert with check (auth.uid() = user_id or user_id is null);

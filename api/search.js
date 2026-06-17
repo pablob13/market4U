@@ -268,8 +268,11 @@ const fetchJusto = async (q, limit, offset) => {
     }
 };
 
-const generateCanonicalKey = (title, brand) => {
-    let clean = title.toLowerCase()
+const generateCanonicalKey = (title = '', brand = '') => {
+    const safeTitle = String(title || '').trim();
+    const safeBrand = String(brand || '').trim();
+    
+    let clean = safeTitle.toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9\s]/g, '');
@@ -290,7 +293,7 @@ const generateCanonicalKey = (title, brand) => {
         .sort();
         
     const base = tokens.join('-');
-    const brandPrefix = brand ? brand.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' : '';
+    const brandPrefix = safeBrand ? safeBrand.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' : '';
     const key = `${brandPrefix}${base}${size ? '-' + size : ''}`;
     
     return key.substring(0, 100) || 'producto-general';

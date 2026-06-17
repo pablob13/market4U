@@ -3,6 +3,19 @@ console.log('%c✅ Market4U app.js v4 cache-busted cargado correctamente', 'back
 console.log('MLService disponible:', typeof MLService !== 'undefined');
 console.log('CONFIG.ML_SEARCH_URL:', typeof CONFIG !== 'undefined' ? CONFIG.ML_SEARCH_URL : 'CONFIG no definido');
 
+// Helper seguro para inicializar iconos de Lucide sin provocar crasheos por red o bloqueadores
+const safeCreateIcons = (options) => {
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        try {
+            lucide.createIcons(options);
+        } catch (e) {
+            console.warn('[Lucide] Error al crear iconos:', e);
+        }
+    } else {
+        console.warn('[Lucide] La librería Lucide no está cargada.');
+    }
+};
+
 // DOM Elements
 const resultsGrid = document.getElementById('resultsGrid');
 const searchInput = document.getElementById('searchInput');
@@ -116,10 +129,10 @@ const loadState = () => {
             addresses = data.addresses || [];
             
             cart = (data.cart || []).map(c => {
-                if(c.product && c.product.id) {
+                if(c && c.product && c.product.id) {
                     const fp = allData.find(x => x.id === c.product.id);
                     return fp ? { product: fp, quantity: c.quantity || 1 } : null;
-                } else if(c.id) {
+                } else if(c && c.id) {
                     const fp = allData.find(x => x.id === c.id);
                     return fp ? { product: fp, quantity: 1 } : null;
                 }
@@ -127,13 +140,14 @@ const loadState = () => {
             }).filter(x => x !== null);
             
             savedLists = (data.savedLists || []).map(list => {
+                if(!list || !list.items) return null;
                 const fItems = list.items.map(i => {
-                    if(i.product && i.product.id) return { product: allData.find(x => x.id === i.product.id), quantity: i.quantity || 1 };
-                    else if(i.id) return { product: allData.find(x => x.id === i.id), quantity: 1 };
+                    if(i && i.product && i.product.id) return { product: allData.find(x => x.id === i.product.id), quantity: i.quantity || 1 };
+                    else if(i && i.id) return { product: allData.find(x => x.id === i.id), quantity: 1 };
                     return null;
                 }).filter(x => x && x.product);
-                return { name: list.name, items: fItems };
-            });
+                return { name: list.name || 'Sin Nombre', items: fItems };
+            }).filter(Boolean);
         } catch(e) { console.error('Error load state', e); }
     } else {
         // MOCK USER DATA INICIAL POR DEFECTO
@@ -148,9 +162,22 @@ const loadState = () => {
             { id: 'addr_2', alias: 'Oficina', street: 'Insurgentes Sur 105', default: false }
         ];
         savedLists = [
-            { name: "Súper de Lunes", items: [{product: currentData[0], quantity: 1}, {product: currentData[1], quantity: 2}, {product: currentData[4], quantity: 1}] },
-            { name: "Limpieza del Mes", items: [{product: currentData[2], quantity: 1}, {product: currentData[3], quantity: 1}] }
-        ];
+            { 
+                name: "Súper de Lunes", 
+                items: [
+                    {product: currentData[0], quantity: 1}, 
+                    {product: currentData[1], quantity: 2}, 
+                    {product: currentData[4], quantity: 1}
+                ].filter(i => i.product !== undefined) 
+            },
+            { 
+                name: "Limpieza del Mes", 
+                items: [
+                    {product: currentData[2], quantity: 1}, 
+                    {product: currentData[3], quantity: 1}
+                ].filter(i => i.product !== undefined) 
+            }
+        ].filter(list => list.items.length > 0);
         cart = [];
         saveState();
     }
@@ -284,7 +311,7 @@ const renderUserNav = () => {
             renderProfileTab();
         });
     }
-    lucide.createIcons();
+    safeCreateIcons();
 };
 
 window.toggleFavorite = (e, id) => {
@@ -323,7 +350,7 @@ const openAlertModal = (id) => {
     alertPriceInput.value = Math.floor(product.bestOffer.price * 0.9); // Sugerir 10% menos
     
     alertModal.classList.add('active');
-    lucide.createIcons();
+    safeCreateIcons();
 };
 
 saveAlertBtn.addEventListener('click', async () => {
@@ -479,11 +506,11 @@ const renderProfileTab = () => {
                     <span class="best-price-badge" style="position:static; margin:0; padding: 0.1rem 0.5rem;">${list.items.length} arts.</span>
                 </div>
                 <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom: 1rem;">
-                    ${list.items.slice(0,3).map(i => i.product.title.split(' ')[0]).join(', ')}...
+                    ${list.items.slice(0,3).map(i => (i.product && i.product.title) ? i.product.title.split(' ')[0] : 'Producto').join(', ')}...
                 </p>
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                   <button class="btn-outline" style="width: 100%;">Cargar Canasta</button>
-                   <button onclick="event.stopPropagation(); deleteList(${idx});" class="btn-outline" style="padding: 0.75rem; border-color: transparent;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                    <button class="btn-outline" style="width: 100%;">Cargar Canasta</button>
+                    <button onclick="event.stopPropagation(); deleteList(${idx});" class="btn-outline" style="padding: 0.75rem; border-color: transparent;"><i data-lucide="trash-2" style="width:18px;"></i></button>
                 </div>
             </div>
         `).join('');
@@ -512,7 +539,7 @@ const renderProfileTab = () => {
                 </div>
             </div>
         `).join(''));
-        lucide.createIcons();
+        safeCreateIcons();
     } else {
         const isFavorites = activeTab === 'favoritos';
         const rawIds = isFavorites ? Array.from(favorites) : alerts.map(a => a.productId);
@@ -547,7 +574,7 @@ const renderProfileTab = () => {
         }).join('');
     }
     
-    lucide.createIcons();
+    safeCreateIcons();
 };
 
 /* --- RENDER PRODUCTS --- */
@@ -693,7 +720,7 @@ const renderProducts = (data) => {
         }
     }
     
-    lucide.createIcons();
+    safeCreateIcons();
 };
 
 /* --- CART LOGIC --- */
@@ -822,7 +849,7 @@ const updateCartUI = () => {
             </div>
         `;
     }).join('');
-    lucide.createIcons();
+    safeCreateIcons();
 };
 
 /* --- SAVED LISTS LOGIC --- */
@@ -853,7 +880,7 @@ document.getElementById('openSaveListPopupBtn').addEventListener('click', () => 
     if(cart.length === 0) { showToast('Tu carrito está vacío.', 'warning'); return; }
     document.getElementById('listNameInput').value = '';
     saveListModal.classList.add('active');
-    lucide.createIcons();
+    safeCreateIcons();
 });
 
 document.getElementById('closeSaveListModal').addEventListener('click', () => {
@@ -1088,7 +1115,7 @@ window.openProductModal = async (id, tab = 'stores') => {
         document.getElementById('mainCatalog').style.display = 'none';
         pdpPage.classList.add('active');
         
-        lucide.createIcons();
+        safeCreateIcons();
         window.scrollTo(0,0);
     } catch(e) {
         alert('ERROR:' + e.message + ' ' + e.stack);
@@ -1099,7 +1126,7 @@ window.openProductModal = async (id, tab = 'stores') => {
 window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if(cartModal.classList.contains('active')) cartModal.classList.remove('active');
 
-    const store = stores[storeKey];
+    const store = stores[storeKey] || { name: storeKey, logo: '🛒', color: '#ffffff', bgColor: '#9b9b9b' };
     
     // UI Reset
     redirectStoreLogo.innerHTML = store.logo;
@@ -1136,7 +1163,7 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     }
     
     redirectModal.classList.add('active');
-    lucide.createIcons();
+    safeCreateIcons();
     
     // Populating UI for success state
     const successStoreName = document.getElementById('redirectSuccessStoreName');
@@ -1290,7 +1317,7 @@ window.showToast = (message, type = 'success', duration = 3500) => {
     toast.innerHTML = `<i data-lucide="${icons[type]}" style="width:20px; height:20px; color:${colors[type]}; flex-shrink:0;"></i><span>${message}</span>`;
     toast.addEventListener('click', () => toast.remove());
     container.appendChild(toast);
-    lucide.createIcons({ nodes: [toast] });
+    safeCreateIcons({ nodes: [toast] });
     
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -1304,7 +1331,7 @@ let html5QrCode = null;
 
 openScannerBtn.addEventListener('click', () => {
     scannerModal.classList.add('active');
-    lucide.createIcons();
+    safeCreateIcons();
     
     if (typeof Html5Qrcode === 'undefined') {
         showToast('Biblioteca de escáner no disponible', 'error');
@@ -1388,7 +1415,7 @@ const hideAuthErrors = () => {
 if(openLoginBtn) openLoginBtn.addEventListener('click', () => {
     hideAuthErrors();
     loginModal.classList.add('active');
-    lucide.createIcons();
+    safeCreateIcons();
 });
 closeLoginModal.addEventListener('click', () => loginModal.classList.remove('active'));
 loginModal.addEventListener('click', (e) => { if (e.target === loginModal) loginModal.classList.remove('active'); });
@@ -1625,7 +1652,7 @@ const showMLBadge = (text, color = 'var(--accent-color)') => {
         document.getElementById('mlLoadingText').style.color = 'var(--text-primary)';
         el.style.borderColor = 'var(--border-color)';
     }
-    lucide.createIcons();
+    safeCreateIcons();
 };
 
 const hideMLBadge = (delay = 0) => {
@@ -1853,7 +1880,7 @@ document.getElementById('openMatrixModalBtn').addEventListener('click', () => {
     
     cartModal.classList.remove('active');
     matrixModal.classList.add('active');
-    lucide.createIcons();
+    safeCreateIcons();
 });
 
 closeMatrixModal.addEventListener('click', () => matrixModal.classList.remove('active'));

@@ -405,24 +405,97 @@ const ListsService = {
             // Fallback a localStorage
             return null;
         }
-        const { data, error } = await _sb
-            .from('saved_lists')
-            .insert({ user_id: userId, name, items });
-        return { data, error };
+        
+        try {
+            // 1. Insertar la lista y retornar la fila insertada con su UUID
+            const { data: listData, error: listError } = await _sb
+                .from('saved_lists')
+                .insert({ user_id: userId, name })
+                .select()
+                .single();
+                
+            if (listError) throw listError;
+            
+            // 2. Si hay productos en el carrito, insertarlos en la tabla relacional
+            if (items && items.length > 0) {
+                const itemsPayload = items.map(item => ({
+                    list_id: listData.id,
+                    product_id: item.product_id,
+                    quantity: item.quantity || 1
+                }));
+                
+                const { error: itemsError } = await _sb
+                    .from('list_items')
+                    .insert(itemsPayload);
+                    
+                if (itemsError) throw itemsError;
+            }
+            
+            return { data: listData, error: null };
+        } catch (e) {
+            console.error('[ListsService.save] Error:', e);
+            return { data: null, error: e };
+        }
     },
 
     getAll: async (userId) => {
         if (!_sb || !userId) return null;
-        const { data, error } = await _sb
-            .from('saved_lists')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-        return { data, error };
+        
+        try {
+            // Obtener listas y realizar el join relacional con list_items y products en una sola consulta
+            const { data, error } = await _sb
+                .from('saved_lists')
+                .select(`
+                    id,
+                    name,
+                    created_at,
+                    list_items (
+                        product_id,
+                        quantity,
+                        products (
+                            id,
+                            ml_id,
+                            title,
+                            image_url,
+                            brand,
+                            category
+                        )
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+                
+            if (error) throw error;
+            
+            // Adaptador de formato para mantener compatibilidad con el procesamiento original de app.js
+            const formattedData = data.map(row => ({
+                id: row.id,
+                name: row.name,
+                created_at: row.created_at,
+                items: (row.list_items || []).map(li => ({
+                    product_id: li.product_id,
+                    quantity: li.quantity,
+                    product: li.products ? {
+                        id: li.products.id,
+                        ml_id: li.products.ml_id,
+                        title: li.products.title,
+                        thumbnail: li.products.image_url,
+                        brand: li.products.brand,
+                        category: li.products.category
+                    } : null
+                })).filter(item => item.product !== null)
+            }));
+            
+            return { data: formattedData, error: null };
+        } catch (e) {
+            console.error('[ListsService.getAll] Error:', e);
+            return { data: null, error: e };
+        }
     },
 
     delete: async (listId) => {
         if (!_sb) return null;
+        // El delete en saved_lists eliminará en cascada los registros correspondientes en list_items
         const { error } = await _sb
             .from('saved_lists')
             .delete()

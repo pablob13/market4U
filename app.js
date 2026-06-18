@@ -2766,3 +2766,15 @@ toastStyle.textContent = `
     }
 `;
 document.head.appendChild(toastStyle);
+
+// Quick search trigger for popular tags
+window.triggerQuickSearch = (query) => {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = query;
+        const searchButton = document.getElementById('searchButton');
+        if (searchButton) {
+            searchButton.click();
+        }
+    }
+};

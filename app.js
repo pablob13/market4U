@@ -1065,28 +1065,9 @@ window.openProductModal = async (id, tab = 'stores') => {
             }).join('');
             
             const curP = (product.bestOffer && product.bestOffer.price) || 0;
-            
-            // Generar las etiquetas y límites de fecha para los últimos 5 meses (incluyendo Hoy)
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            const now = new Date();
-            let points = [];
-            for (let i = 4; i >= 0; i--) {
-                let label = '';
-                let boundaryDate;
-                if (i === 0) {
-                    label = 'Hoy';
-                    boundaryDate = new Date(now);
-                } else {
-                    const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
-                    label = monthNames[d.getMonth()];
-                    boundaryDate = d;
-                }
-                points.push({
-                    boundaryDate: boundaryDate,
-                    label: label,
-                    price: curP
-                });
-            }
+            
+            let finalPoints = [];
             
             if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
                 // Promise race to prevent total freeze if Supabase hangs on auth locks
@@ -1094,40 +1075,81 @@ window.openProductModal = async (id, tab = 'stores') => {
                     MLService.getRealHistory(product.ml_id || product.id),
                     new Promise(resolve => setTimeout(() => resolve(null), 1500))
                 ]);
-                if (rawHistory && rawHistory.length > 0 && product.bestOffer) {
-                    // Filter specifically for the history of the winning store
-                    const storeHistory = rawHistory.filter(h => h.store_id === product.bestOffer.store);
-                    if (storeHistory.length > 0) {
-                        // Para cada uno de los 5 puntos, buscar el precio correspondiente a esa fecha límite
-                        points.forEach((pt) => {
-                            let activePrice = null;
-                            for (let idx = storeHistory.length - 1; idx >= 0; idx--) {
-                                const entry = storeHistory[idx];
-                                const entryDate = new Date(entry.scraped_at);
-                                if (entryDate <= pt.boundaryDate) {
-                                    activePrice = entry.price;
-                                    break;
-                                }
-                            }
-                            if (activePrice === null) {
-                                activePrice = storeHistory[0].price;
-                            }
-                            pt.price = Number(activePrice);
-                        });
-                    }
+                
+                const storeHistory = (rawHistory && product.bestOffer) 
+                    ? rawHistory.filter(h => h.store_id === product.bestOffer.store)
+                    : [];
+                    
+                if (storeHistory.length > 0) {
+                    // Group history by month to find unique historical months
+                    const groups = {};
+                    storeHistory.forEach(h => {
+                        const d = new Date(h.scraped_at);
+                        const year = d.getFullYear();
+                        const month = d.getMonth();
+                        const key = `${year}-${month}`;
+                        // We want the last price of that month
+                        groups[key] = {
+                            date: d,
+                            price: Number(h.price),
+                            label: monthNames[month]
+                        };
+                    });
+                    
+                    // Always ensure we have "Hoy" as the last entry
+                    const now = new Date();
+                    const currentKey = `${now.getFullYear()}-${now.getMonth()}`;
+                    groups[currentKey] = {
+                        date: now,
+                        price: curP,
+                        label: 'Hoy'
+                    };
+                    
+                    const sortedPoints = Object.values(groups).sort((a, b) => a.date - b.date);
+                    // Take the last 5 months
+                    finalPoints = sortedPoints.slice(-5);
                 }
             }
             
-            const vals = points.map(pt => pt.price);
-            const labels = points.map(pt => pt.label);
+            // Fallback if no history was found/processed
+            if (finalPoints.length === 0) {
+                finalPoints = [{
+                    date: new Date(),
+                    price: curP,
+                    label: 'Hoy'
+                }];
+            }
+            
+            const vals = finalPoints.map(pt => pt.price);
+            const labels = finalPoints.map(pt => pt.label);
             
             const maxV = Math.max(...vals) * 1.05;
             const minV = Math.min(...vals) * 0.90;
             const getY = (v) => (maxV === minV) ? 85 : 85 - ((v - minV) / (maxV - minV)) * 65;
-            const xCoords = [25, 87.5, 150, 212.5, 275];
+            
+            // Calculate coordinates based on number of points
+            let xCoords = [];
+            const N = finalPoints.length;
+            if (N === 1) {
+                xCoords = [150];
+            } else {
+                const step = 250 / (N - 1);
+                for (let i = 0; i < N; i++) {
+                    xCoords.push(25 + i * step);
+                }
+            }
+            
             const yCoords = vals.map(getY);
-            const linePoints = xCoords.map((x, idx) => `${x},${yCoords[idx]}`).join(' ');
-            const areaPoints = `${linePoints} ${xCoords[4]},130 ${xCoords[0]},130`;
+            
+            // Generate line and area points if we have at least 2 points
+            let areaHTML = '';
+            let lineHTML = '';
+            if (N > 1) {
+                const linePoints = xCoords.map((x, idx) => `${x},${yCoords[idx]}`).join(' ');
+                const areaPoints = `${linePoints} ${xCoords[N - 1]},130 ${xCoords[0]},130`;
+                areaHTML = `<polygon points="${areaPoints}" fill="url(#areaGradient)"></polygon>`;
+                lineHTML = `<polyline points="${linePoints}" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
+            }
             
             dynamicContentHTML = `
                 <div class="compare-table-container" style="box-shadow:none; border: 1px solid var(--border-color); margin-bottom: 2rem;">
@@ -1143,12 +1165,12 @@ window.openProductModal = async (id, tab = 'stores') => {
                     <div style="position:relative; width: 100%; max-width: 480px; margin: 2rem auto 0; padding-bottom: 1rem;">
                         <svg viewBox="0 0 300 135" style="width: 100%; display:block; overflow: visible;">
                             <defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--success)" stop-opacity="0.4"></stop><stop offset="100%" stop-color="var(--success)" stop-opacity="0.0"></stop></linearGradient></defs>
-                            <polygon points="${areaPoints}" fill="url(#areaGradient)"></polygon>
-                            <polyline points="${linePoints}" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                            ${areaHTML}
+                            ${lineHTML}
                             ${vals.map((v, i) => `
-                                <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="${i === 4 ? '4.5' : '3.5'}" fill="var(--bg-primary)" stroke="var(--success)" stroke-width="2"></circle>
+                                <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="${i === N - 1 ? '4.5' : '3.5'}" fill="var(--bg-primary)" stroke="var(--success)" stroke-width="2"></circle>
                                 <text x="${xCoords[i]}" y="${yCoords[i] - 12}" text-anchor="middle" font-size="9" fill="var(--text-primary)" font-weight="600" style="font-family: inherit;">$${Math.floor(v)}</text>
-                                <text x="${xCoords[i]}" y="${125}" text-anchor="middle" font-size="9" fill="${i === 4 ? 'var(--text-primary)' : 'var(--text-secondary)'}" font-weight="${i === 4 ? '600' : '400'}" style="font-family: inherit;">${labels[i]}</text>
+                                <text x="${xCoords[i]}" y="${125}" text-anchor="middle" font-size="9" fill="${i === N - 1 ? 'var(--text-primary)' : 'var(--text-secondary)'}" font-weight="${i === N - 1 ? '600' : '400'}" style="font-family: inherit;">${labels[i]}</text>
                             `).join('')}
                         </svg>
                     </div>

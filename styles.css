@@ -555,7 +555,11 @@ html {
     border-color: var(--text-tertiary);
 }
 
-/* Highlight Best Row */
+/* Highlight Best Row / Selected Row */
+.compare-table tbody tr {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
 .best-row {
     background-color: rgba(46, 125, 50, 0.03);
 }
@@ -564,6 +568,10 @@ html {
 }
 .best-row .price-cell {
     color: var(--success);
+}
+.compare-table tr.selected-row {
+    background-color: rgba(34, 197, 94, 0.09) !important;
+    box-shadow: inset 4px 0 0 0 var(--success);
 }
 
 /* CARTS AND SAVED LISTS Phase 1 */

@@ -1015,7 +1015,7 @@ saveListBtn.addEventListener('click', async () => {
 });
 
 /* --- SINGLE PRODUCT MODAL --- */
-window.openProductModal = async (id, tab = 'stores') => {
+window.openProductModal = async (id, tab = 'stores', selectedStore = null) => {
     console.info('MODAL CLICK INTERCEPTED! KICKING OFF FOR ID:', id);
     try {
         const product = allData.find(x => x.id === id || String(x.id) === String(id));
@@ -1026,7 +1026,7 @@ window.openProductModal = async (id, tab = 'stores') => {
         
         const tabsHTML = `
             <div class="pdp-tabs-container">
-                <button class="pdp-tab-btn ${tab === 'stores' ? 'active' : ''}" onclick="openProductModal('${id}', 'stores')"><i data-lucide="store" style="width:16px; margin-right:4px;"></i> Comparar Tiendas</button>
+                <button class="pdp-tab-btn ${tab === 'stores' ? 'active' : ''}" onclick="openProductModal('${id}', 'stores', ${selectedStore ? `'${selectedStore}'` : 'null'})"><i data-lucide="store" style="width:16px; margin-right:4px;"></i> Comparar Tiendas</button>
                 <button class="pdp-tab-btn ${tab === 'brands' ? 'active' : ''}" onclick="openProductModal('${id}', 'brands')"><i data-lucide="tags" style="width:16px; margin-right:4px;"></i> Comparar Marcas</button>
             </div>
         `;
@@ -1034,15 +1034,18 @@ window.openProductModal = async (id, tab = 'stores') => {
         let dynamicContentHTML = '';
 
         if (tab === 'stores') {
+            const activeStore = selectedStore || (product.bestOffer && product.bestOffer.store);
+            
             const tableRows = product.sortedOffers.map((offer, index) => {
                 const store = stores[offer.store] || { name: offer.store, logo: '?', color: '#fff', bgColor: '#999' };
                 const isBest = index === 0;
+                const isSelected = offer.store === activeStore;
                 const total = offer.price + offer.shipping;
                 const hasPromoOffer = offer.list_price && offer.list_price > offer.price;
                 const discountPctOffer = hasPromoOffer ? Math.round((1 - offer.price / offer.list_price) * 100) : 0;
                 
                 return `
-                    <tr class="${isBest ? 'best-row' : ''}">
+                    <tr class="${isBest ? 'best-row' : ''} ${isSelected ? 'selected-row' : ''}" onclick="openProductModal('${id}', 'stores', '${offer.store}')">
                         <td>
                             <div class="store-cell">
                                 <div class="store-badge" style="background-color: ${store.bgColor}; color: ${store.color}">${store.logo}</div>
@@ -1059,12 +1062,13 @@ window.openProductModal = async (id, tab = 'stores') => {
                         <td class="shipping-cell">${offer.shipping === 0 ? '<span style="color:var(--success); font-weight:600;">Gratis</span>' : formatCurrency(offer.shipping)}</td>
                         <td class="delivery-cell">${offer.delivery}</td>
                         <td style="font-weight: 600;">${formatCurrency(total)}</td>
-                        <td style="text-align: right;"><button onclick="startRedirect('${offer.store}', false, '${product.id}')" class="btn-goto ${!isBest ? 'outline' : ''}" style="border-radius:var(--radius-sm); border: ${isBest ? 'none' : '1px solid var(--border-color)'}; cursor: pointer;">Ir a Tienda</button></td>
+                        <td style="text-align: right;"><button onclick="event.stopPropagation(); startRedirect('${offer.store}', false, '${product.id}')" class="btn-goto ${!isBest ? 'outline' : ''}" style="border-radius:var(--radius-sm); border: ${isBest ? 'none' : '1px solid var(--border-color)'}; cursor: pointer;">Ir a Tienda</button></td>
                     </tr>
                 `;
             }).join('');
             
-            const curP = (product.bestOffer && product.bestOffer.price) || 0;
+            const activeOffer = product.sortedOffers.find(o => o.store === activeStore) || product.bestOffer;
+            const curP = (activeOffer && activeOffer.price) || 0;
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
             
             let finalPoints = [];
@@ -1076,8 +1080,8 @@ window.openProductModal = async (id, tab = 'stores') => {
                     new Promise(resolve => setTimeout(() => resolve(null), 1500))
                 ]);
                 
-                const storeHistory = (rawHistory && product.bestOffer) 
-                    ? rawHistory.filter(h => h.store_id === product.bestOffer.store)
+                const storeHistory = (rawHistory && activeStore) 
+                    ? rawHistory.filter(h => h.store_id === activeStore)
                     : [];
                     
                 if (storeHistory.length > 0) {
@@ -1151,6 +1155,8 @@ window.openProductModal = async (id, tab = 'stores') => {
                 lineHTML = `<polyline points="${linePoints}" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
             }
             
+            const activeStoreObj = stores[activeStore] || { name: activeStore };
+
             dynamicContentHTML = `
                 <div class="compare-table-container" style="box-shadow:none; border: 1px solid var(--border-color); margin-bottom: 2rem;">
                     <table class="compare-table">
@@ -1160,7 +1166,7 @@ window.openProductModal = async (id, tab = 'stores') => {
                 </div>
                 
                 <div class="price-chart-container" style="margin-top: 0;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i data-lucide="trending-down" style="color:var(--success); width:18px;"></i> Historial Analítico (En Vivo)</h3>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i data-lucide="trending-down" style="color:var(--success); width:18px;"></i> Historial Analítico: ${activeStoreObj.name} (En Vivo)</h3>
                     <p style="font-size: 0.85rem; color: var(--text-secondary);">El precio actual es tu ventana histórica perfecta para comprar.</p>
                     <div style="position:relative; width: 100%; max-width: 480px; margin: 2rem auto 0; padding-bottom: 1rem;">
                         <svg viewBox="0 0 300 135" style="width: 100%; display:block; overflow: visible;">

@@ -1065,7 +1065,28 @@ window.openProductModal = async (id, tab = 'stores') => {
             }).join('');
             
             const curP = (product.bestOffer && product.bestOffer.price) || 0;
-            let vals = [curP, curP, curP, curP];
+            
+            // Generar las etiquetas y límites de fecha para los últimos 5 meses (incluyendo Hoy)
+            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const now = new Date();
+            let points = [];
+            for (let i = 4; i >= 0; i--) {
+                let label = '';
+                let boundaryDate;
+                if (i === 0) {
+                    label = 'Hoy';
+                    boundaryDate = new Date(now);
+                } else {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+                    label = monthNames[d.getMonth()];
+                    boundaryDate = d;
+                }
+                points.push({
+                    boundaryDate: boundaryDate,
+                    label: label,
+                    price: curP
+                });
+            }
             
             if (typeof MLService !== 'undefined' && MLService.getRealHistory) {
                 // Promise race to prevent total freeze if Supabase hangs on auth locks
@@ -1077,22 +1098,36 @@ window.openProductModal = async (id, tab = 'stores') => {
                     // Filter specifically for the history of the winning store
                     const storeHistory = rawHistory.filter(h => h.store_id === product.bestOffer.store);
                     if (storeHistory.length > 0) {
-                        const priceStamps = Array.from(new Set(storeHistory.map(h => h.price)));
-                        vals[3] = curP;
-                        vals[2] = priceStamps[priceStamps.length - 1] || curP;
-                        vals[1] = priceStamps[priceStamps.length - 2] || vals[2];
-                        vals[0] = priceStamps[priceStamps.length - 3] || vals[1];
+                        // Para cada uno de los 5 puntos, buscar el precio correspondiente a esa fecha límite
+                        points.forEach((pt) => {
+                            let activePrice = null;
+                            for (let idx = storeHistory.length - 1; idx >= 0; idx--) {
+                                const entry = storeHistory[idx];
+                                const entryDate = new Date(entry.scraped_at);
+                                if (entryDate <= pt.boundaryDate) {
+                                    activePrice = entry.price;
+                                    break;
+                                }
+                            }
+                            if (activePrice === null) {
+                                activePrice = storeHistory[0].price;
+                            }
+                            pt.price = Number(activePrice);
+                        });
                     }
                 }
             }
             
+            const vals = points.map(pt => pt.price);
+            const labels = points.map(pt => pt.label);
+            
             const maxV = Math.max(...vals) * 1.05;
             const minV = Math.min(...vals) * 0.90;
             const getY = (v) => (maxV === minV) ? 85 : 85 - ((v - minV) / (maxV - minV)) * 65;
-            const xCoords = [25, 108, 191, 275];
+            const xCoords = [25, 87.5, 150, 212.5, 275];
             const yCoords = vals.map(getY);
-            const linePoints = `${xCoords[0]},${yCoords[0]} ${xCoords[1]},${yCoords[1]} ${xCoords[2]},${yCoords[2]} ${xCoords[3]},${yCoords[3]}`;
-            const areaPoints = `${linePoints} ${xCoords[3]},130 ${xCoords[0]},130`;
+            const linePoints = xCoords.map((x, idx) => `${x},${yCoords[idx]}`).join(' ');
+            const areaPoints = `${linePoints} ${xCoords[4]},130 ${xCoords[0]},130`;
             
             dynamicContentHTML = `
                 <div class="compare-table-container" style="box-shadow:none; border: 1px solid var(--border-color); margin-bottom: 2rem;">
@@ -1111,9 +1146,9 @@ window.openProductModal = async (id, tab = 'stores') => {
                             <polygon points="${areaPoints}" fill="url(#areaGradient)"></polygon>
                             <polyline points="${linePoints}" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
                             ${vals.map((v, i) => `
-                                <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="${i === 3 ? '4.5' : '3.5'}" fill="var(--bg-primary)" stroke="var(--success)" stroke-width="2"></circle>
+                                <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="${i === 4 ? '4.5' : '3.5'}" fill="var(--bg-primary)" stroke="var(--success)" stroke-width="2"></circle>
                                 <text x="${xCoords[i]}" y="${yCoords[i] - 12}" text-anchor="middle" font-size="9" fill="var(--text-primary)" font-weight="600" style="font-family: inherit;">$${Math.floor(v)}</text>
-                                <text x="${xCoords[i]}" y="${125}" text-anchor="middle" font-size="9" fill="${i === 3 ? 'var(--text-primary)' : 'var(--text-secondary)'}" font-weight="${i === 3 ? '600' : '400'}" style="font-family: inherit;">${['Ene', 'Feb', 'Mar', 'Hoy'][i]}</text>
+                                <text x="${xCoords[i]}" y="${125}" text-anchor="middle" font-size="9" fill="${i === 4 ? 'var(--text-primary)' : 'var(--text-secondary)'}" font-weight="${i === 4 ? '600' : '400'}" style="font-family: inherit;">${labels[i]}</text>
                             `).join('')}
                         </svg>
                     </div>

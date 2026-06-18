@@ -22,6 +22,49 @@ headers = {
     "Accept": "application/json"
 }
 
+import unicodedata
+
+def generate_canonical_key(title="", brand=""):
+    safe_title = str(title or "").strip()
+    safe_brand = str(brand or "").strip()
+    
+    # normalize and remove accents
+    clean = unicodedata.normalize('NFD', safe_title.lower())
+    clean = "".join([c for c in clean if not unicodedata.combining(c)])
+    
+    # remove special characters except spaces and numbers
+    clean = re.sub(r'[^a-z0-9\s]', '', clean)
+    
+    size_regex = re.compile(r'([0-9.,]+)\s*(ml|l|lt|g|kg|grs|gr|mg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)', re.IGNORECASE)
+    size_match = size_regex.search(clean)
+    size = ""
+    if size_match:
+        size = size_match.group(0).replace(" ", "").replace("lt", "l")
+        
+    text = clean
+    if size_match:
+        text = text.replace(size_match.group(0), "")
+        
+    stop_words = {'de', 'con', 'para', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'y', 'o', 'al', 'del'}
+    tokens = [t.strip() for t in re.split(r'\s+', text) if t.strip()]
+    tokens = [t for t in tokens if len(t) > 2 and t not in stop_words]
+    tokens.sort()
+    
+    base = "-".join(tokens)
+    brand_prefix = ""
+    if safe_brand:
+        brand_clean = re.sub(r'[^a-z0-9]', '', safe_brand.lower())
+        if brand_clean:
+            brand_prefix = brand_clean + "-"
+            
+    key = f"{brand_prefix}{base}"
+    if size:
+        key = f"{key}-{size}"
+        
+    key = re.sub(r'-+', '-', key).strip('-')
+    
+    return key[:100] if key else "producto-general"
+
 def clean_html(raw_html):
     if not raw_html: return ""
     cleanr = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
@@ -66,8 +109,9 @@ def scrape_chedraui(query, limit=20):
         permalink = f"https://www.chedraui.com.mx/p/{p.get('linkText')}-{pid}"
 
         # 1. Guardar en Catálogo Central (products)
+        canonical_key = generate_canonical_key(name, brand)
         product_data = {
-            "ml_id": f"che_{pid}",
+            "ml_id": canonical_key,
             "title": name,
             "description": desc_clean if desc_clean else f"{name} de {brand}",
             "image_url": img,

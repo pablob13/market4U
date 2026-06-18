@@ -1,12 +1,100 @@
 const CONFIG = require('../config.js');
 const supabaseUrl = process.env.SUPABASE_URL || CONFIG.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || CONFIG.SUPABASE_ANON_KEY;
+const CITY_MAP = {
+    default: { lacomerBranch: '27', hebSC: '1', chedrauiSC: '1' },
+    cdmx: { lacomerBranch: '27', hebSC: '1', chedrauiSC: '1' },
+    mty: { lacomerBranch: '111', hebSC: '11', chedrauiSC: '2' },
+    gdl: { lacomerBranch: '45', hebSC: '4', chedrauiSC: '3' }
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 4500) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (err) {
+        clearTimeout(id);
+        throw err;
+    }
+};
+
+const TextUtils = {
+    normalize: (val) => String(val || '').trim().toLowerCase(),
+    
+    decodeHtmlEntities: (str) => {
+        if (!str) return '';
+        return str
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&aacute;/g, 'á')
+            .replace(/&eacute;/g, 'é')
+            .replace(/&iacute;/g, 'í')
+            .replace(/&oacute;/g, 'ó')
+            .replace(/&uacute;/g, 'ú')
+            .replace(/&Aacute;/g, 'Á')
+            .replace(/&Eacute;/g, 'É')
+            .replace(/&Iacute;/g, 'Í')
+            .replace(/&Oacute;/g, 'Ó')
+            .replace(/&Uacute;/g, 'Ú')
+            .replace(/&ntilde;/g, 'ñ')
+            .replace(/&Ntilde;/g, 'Ñ');
+    },
+    
+    sanitizeGraphQLQuery: (q) => {
+        return String(q || '').replace(/"/g, '');
+    },
+    
+    generateCanonicalKey: (title = '', brand = '') => {
+        const safeTitle = String(title || '').trim();
+        const safeBrand = String(brand || '').trim();
+        
+        let clean = safeTitle.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, '');
+        
+        const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|grs|gr|mg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
+        const sizeMatch = clean.match(sizeRegex);
+        const size = sizeMatch ? sizeMatch[0].replace(/\s/g, '').replace('lt', 'l') : '';
+        
+        let text = clean;
+        if (sizeMatch) {
+            text = text.replace(sizeMatch[0], '');
+        }
+        
+        const stopWords = new Set(['de', 'con', 'para', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'y', 'o', 'al', 'del']);
+        const tokens = text.split(/\s+/)
+            .map(t => t.trim())
+            .filter(t => t.length > 2 && !stopWords.has(t))
+            .sort();
+            
+        const base = tokens.join('-');
+        const brandPrefix = safeBrand ? safeBrand.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' : '';
+        let key = `${brandPrefix}${base}${size ? '-' + size : ''}`;
+        
+        key = key.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        
+        return key.substring(0, 100) || 'producto-general';
+    }
+};
+
+const decodeHtmlEntities = (str) => TextUtils.decodeHtmlEntities(str);
 
 const fetchSoriana = async (q, limit, offset) => {
     try {
         const querySafe = encodeURIComponent(q).replace(/%20/g, '+');
         const url = `https://www.soriana.com/buscar?q=${querySafe}&sz=${limit}&start=${offset}`;
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
                 "Accept-Language": "es-MX,es;q=0.9"
@@ -31,7 +119,7 @@ const fetchSoriana = async (q, limit, offset) => {
             if (nameMatch && priceMatch && pidMatch) {
                 results.push({
                     id: 'sor_' + pidMatch[1],
-                    title: nameMatch[1].trim(),
+                    title: decodeHtmlEntities(nameMatch[1].trim()),
                     price: parseFloat(priceMatch[1]),
                     thumbnail: img || 'https://via.placeholder.com/150',
                     permalink: urlMatch ? 'https://www.soriana.com' + urlMatch[1] : null,
@@ -50,11 +138,11 @@ const fetchSoriana = async (q, limit, offset) => {
     }
 };
 
-const fetchChedraui = async (q, limit, offset) => {
+const fetchChedraui = async (q, limit, offset, sc = '1') => {
     try {
         const page = Math.floor(offset / limit) + 1;
-        const url = `https://www.chedraui.com.mx/api/io/_v/api/intelligent-search/product_search/?query=${encodeURIComponent(q)}&page=${page}&count=${limit}`;
-        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        const url = `https://www.chedraui.com.mx/api/io/_v/api/intelligent-search/product_search/?query=${encodeURIComponent(q)}&page=${page}&count=${limit}&sc=${sc}`;
+        const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
         if (!response.ok) return [];
 
         const data = await response.json();
@@ -100,11 +188,11 @@ const fetchChedraui = async (q, limit, offset) => {
 // (key pública descubierta en el sitio oficial)
 // Docs: https://docs.constructor.io/rest_api/
 // ============================================
-const fetchLaComer = async (q, limit, offset) => {
+const fetchLaComer = async (q, limit, offset, branchId = '27') => {
     try {
         const page = Math.floor(offset / limit) + 1;
         const url = `https://ac.cnstrc.com/search/${encodeURIComponent(q)}?key=key_jFyBbey5lPs8DCW4&num_results_per_page=${limit}&page=${page}`;
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
             headers: {
                 "Accept": "application/json",
                 "User-Agent": "Mozilla/5.0 (compatible; Market4U/2.0)"
@@ -124,7 +212,7 @@ const fetchLaComer = async (q, limit, offset) => {
             // Construir permalink limpio con el ID del producto (EAN/barcode)
             const productId = d.id || '';
             const permalink = productId
-                ? `https://www.lacomer.com.mx/lacomer/#!/detarticulo/${productId}/0/27/1///27`
+                ? `https://www.lacomer.com.mx/lacomer/#!/detarticulo/${productId}/0/${branchId}/1///${branchId}`
                 : 'https://www.lacomer.com.mx';
 
             results.push({
@@ -147,11 +235,11 @@ const fetchLaComer = async (q, limit, offset) => {
     }
 };
 
-const fetchHeb = async (q, limit, offset) => {
+const fetchHeb = async (q, limit, offset, sc = '1') => {
     try {
         const page = Math.floor(offset / limit) + 1;
-        const url = `https://www.heb.com.mx/api/io/_v/api/intelligent-search/product_search/?query=${encodeURIComponent(q)}&page=${page}&count=${limit}`;
-        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        const url = `https://www.heb.com.mx/api/io/_v/api/intelligent-search/product_search/?query=${encodeURIComponent(q)}&page=${page}&count=${limit}&sc=${sc}`;
+        const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
         if (!response.ok) return [];
 
         const data = await response.json();
@@ -192,10 +280,10 @@ const fetchHeb = async (q, limit, offset) => {
     }
 };
 
-const fetchCityMarket = async (q, limit, offset) => {
+const fetchCityMarket = async (q, limit, offset, branchId = '27') => {
     try {
         // City Market comparte la misma infraestructura y API key (Constructor.io) que La Comer
-        const results = await fetchLaComer(q, limit, offset);
+        const results = await fetchLaComer(q, limit, offset, branchId);
         return results.map(r => ({
             ...r,
             id: r.id.replace('lac_', 'cm_'),
@@ -209,9 +297,9 @@ const fetchCityMarket = async (q, limit, offset) => {
 };
 
 // FRESKO — Vía La Comer (Reutilizamos la API porque comparten infraestructura)
-const fetchFresko = async (q, limit, offset) => {
+const fetchFresko = async (q, limit, offset, branchId = '27') => {
     try {
-        const lacomerResults = await fetchLaComer(q, limit, offset);
+        const lacomerResults = await fetchLaComer(q, limit, offset, branchId);
         return lacomerResults.map(p => ({
             ...p,
             id: p.id.replace('lac_', 'fre_'),
@@ -226,9 +314,10 @@ const fetchFresko = async (q, limit, offset) => {
 // JÜSTO — Vía GraphQL
 const fetchJusto = async (q, limit, offset) => {
     try {
+        const cleanQ = TextUtils.sanitizeGraphQLQuery(q);
         const query = `
         {
-          products(first: ${limit}, filter: { search: "${q}" }) {
+          products(first: ${limit}, filter: { search: "${cleanQ}" }) {
             edges {
               node {
                 id
@@ -240,7 +329,7 @@ const fetchJusto = async (q, limit, offset) => {
           }
         }`;
         
-        const response = await fetch("https://api.justo.mx/graphql/", {
+        const response = await fetchWithTimeout("https://api.justo.mx/graphql/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query })
@@ -268,36 +357,7 @@ const fetchJusto = async (q, limit, offset) => {
     }
 };
 
-const generateCanonicalKey = (title = '', brand = '') => {
-    const safeTitle = String(title || '').trim();
-    const safeBrand = String(brand || '').trim();
-    
-    let clean = safeTitle.toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9\s]/g, '');
-    
-    const sizeRegex = /([0-9.,]+)\s*(ml|l|lt|g|kg|grs|gr|mg|oz|rollo|rollos|pañuelo|pañuelos|toallita|toallitas|hojas|hoja|servilletas)/i;
-    const sizeMatch = clean.match(sizeRegex);
-    const size = sizeMatch ? sizeMatch[0].replace(/\s/g, '').replace('lt', 'l') : '';
-    
-    let text = clean;
-    if (sizeMatch) {
-        text = text.replace(sizeMatch[0], '');
-    }
-    
-    const stopWords = new Set(['de', 'con', 'para', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'y', 'o', 'al', 'del']);
-    const tokens = text.split(/\s+/)
-        .map(t => t.trim())
-        .filter(t => t.length > 2 && !stopWords.has(t))
-        .sort();
-        
-    const base = tokens.join('-');
-    const brandPrefix = safeBrand ? safeBrand.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' : '';
-    const key = `${brandPrefix}${base}${size ? '-' + size : ''}`;
-    
-    return key.substring(0, 100) || 'producto-general';
-};
+const generateCanonicalKey = (title = '', brand = '') => TextUtils.generateCanonicalKey(title, brand);
 
 const backendMergeProducts = (products) => {
     const merged = [];
@@ -471,20 +531,18 @@ module.exports = async function handler(req, res) {
     const { q, limit = 48, offset = 0, city = 'default' } = req.query;
     if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
 
-    // TODO: Implementar mapeo de ciudades a "Sales Channels (sc)" para VTEX y "sucursales" para Constructor.io
-    // Ejemplo (no implementado por falta de catálogos exactos):
-    // const cityMap = { 'cdmx': { chedrauiSC: '1', hebSC: '1', lacomerId: '27' }, 'mty': { ... } }
-    // if (city !== 'default') { apply_regional_filters... }
+    // Determinar mapeo de ciudad regional para scrapers
+    const configRegion = CITY_MAP[city.toLowerCase()] || CITY_MAP.default;
 
     try {
-        // Ejecutar todos los scrapers en paralelo para máxima velocidad
+        // Ejecutar todos los scrapers en paralelo para máxima velocidad con filtros regionales
         const [soriana, chedraui, heb, lacomer, citymarket, fresko, justo] = await Promise.all([
             fetchSoriana(q, Number(limit), Number(offset)),
-            fetchChedraui(q, Number(limit), Number(offset)),
-            fetchHeb(q, Number(limit), Number(offset)),
-            fetchLaComer(q, Number(limit), Number(offset)),
-            fetchCityMarket(q, Number(limit), Number(offset)),
-            fetchFresko(q, Number(limit), Number(offset)),
+            fetchChedraui(q, Number(limit), Number(offset), configRegion.chedrauiSC),
+            fetchHeb(q, Number(limit), Number(offset), configRegion.hebSC),
+            fetchLaComer(q, Number(limit), Number(offset), configRegion.lacomerBranch),
+            fetchCityMarket(q, Number(limit), Number(offset), configRegion.lacomerBranch),
+            fetchFresko(q, Number(limit), Number(offset), configRegion.lacomerBranch),
             fetchJusto(q, Number(limit), Number(offset))
         ]);
 

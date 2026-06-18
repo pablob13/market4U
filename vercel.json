@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "echo built",
-  "outputDirectory": ".",
-  "installCommand": "echo no install needed"
+  "buildCommand": "npm run build",
+  "outputDirectory": "www",
+  "installCommand": "npm install"
 }

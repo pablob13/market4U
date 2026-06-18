@@ -1,7 +1,40 @@
 // content.js - Inyectado en Market4U y en los Supermercados
 
+const Env = {
+    BRIDGE_HOSTS: ['localhost', '127.0.0.1', 'vercel.app'],
+    isBridgeMode: () => {
+        const hostname = window.location.hostname;
+        return Env.BRIDGE_HOSTS.some(host => hostname.includes(host));
+    }
+};
+
+const SafeStorage = {
+    localStorage: {
+        getLength: () => {
+            try { return localStorage.length; } catch (e) { return 0; }
+        },
+        key: (index) => {
+            try { return localStorage.key(index); } catch (e) { return null; }
+        },
+        getItem: (key) => {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        }
+    },
+    sessionStorage: {
+        getLength: () => {
+            try { return sessionStorage.length; } catch (e) { return 0; }
+        },
+        key: (index) => {
+            try { return sessionStorage.key(index); } catch (e) { return null; }
+        },
+        getItem: (key) => {
+            try { return sessionStorage.getItem(key); } catch (e) { return null; }
+        }
+    }
+};
+
 // 1. MODO PUENTE (Cuando estamos en Market4U)
-if (window.location.hostname.includes('localhost') || window.location.hostname.includes('vercel.app')) {
+if (Env.isBridgeMode()) {
     console.log("🛒 Market4U Extension Bridge activado.");
     
     // Escuchar mensajes de la página web de Market4U
@@ -219,8 +252,21 @@ else {
                         } catch(e) {}
                     };
 
-                    for (let i = 0; i < localStorage.length; i++) searchObj(localStorage.getItem(localStorage.key(i)));
-                    for (let i = 0; i < sessionStorage.length; i++) searchObj(sessionStorage.getItem(sessionStorage.key(i)));
+                    const lsLen = SafeStorage.localStorage.getLength();
+                    for (let i = 0; i < lsLen; i++) {
+                        const key = SafeStorage.localStorage.key(i);
+                        if (key) {
+                            searchObj(SafeStorage.localStorage.getItem(key));
+                        }
+                    }
+                    
+                    const ssLen = SafeStorage.sessionStorage.getLength();
+                    for (let i = 0; i < ssLen; i++) {
+                        const key = SafeStorage.sessionStorage.key(i);
+                        if (key) {
+                            searchObj(SafeStorage.sessionStorage.getItem(key));
+                        }
+                    }
                     
                     document.cookie.split(';').forEach(c => {
                         try { searchObj(decodeURIComponent(c.split('=')[1])); } catch(e) {}

@@ -15,7 +15,8 @@
     "*://*.lacomer.com.mx/*",
     "*://*.citymarket.com.mx/*",
     "*://*.market4u.com/*",
-    "*://localhost/*"
+    "*://localhost/*",
+    "*://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -29,6 +30,7 @@
         "*://*.lacomer.com.mx/*",
         "*://*.citymarket.com.mx/*",
         "*://localhost/*",
+        "*://127.0.0.1/*",
         "*://*.vercel.app/*"
       ],
       "js": ["content.js"]

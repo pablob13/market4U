@@ -21,6 +21,122 @@ const initSupabase = () => {
     return _sb;
 };
 
+// ---- SAFE STORAGE -----------------------------
+const SafeStorage = {
+    getItem: (key) => {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            console.warn('[SafeStorage] Error reading key:', key, e);
+            return null;
+        }
+    },
+    setItem: (key, value) => {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (e) {
+            console.warn('[SafeStorage] Error writing key:', key, e);
+            return false;
+        }
+    },
+    removeItem: (key) => {
+        try {
+            localStorage.removeItem(key);
+            return true;
+        } catch (e) {
+            console.warn('[SafeStorage] Error removing key:', key, e);
+            return false;
+        }
+    },
+    keys: () => {
+        try {
+            return Object.keys(localStorage);
+        } catch (e) {
+            return [];
+        }
+    }
+};
+
+
+// ---- ADAPTERS ---------------------------------
+const ProductAdapter = {
+    toFrontend: (dbProduct) => {
+        if (!dbProduct) return null;
+        const offersArray = (dbProduct.price_history || []).map(ph => ({
+            store: ph.store_id || 'desconocido',
+            price: Number(ph.price || 0),
+            shipping: Number(ph.shipping || 0),
+            delivery: 'Supermercado local',
+            url: ph.source_url || dbProduct.permalink || null
+        }));
+
+        // Ordenar ofertas por precio menor
+        offersArray.sort((a, b) => a.price - b.price);
+        const primaryOffer = offersArray[0] || { price: 0, store: 'desconocido', shipping: 0, url: null };
+
+        return {
+            id: dbProduct.ml_id || dbProduct.id,
+            ml_id: dbProduct.ml_id,
+            barcode: dbProduct.barcode || null,
+            title: dbProduct.title,
+            price: primaryOffer.price,
+            thumbnail: dbProduct.image_url || 'https://via.placeholder.com/150',
+            seller: primaryOffer.store,
+            free_shipping: false,
+            brand: dbProduct.brand || '',
+            category_id: dbProduct.category || '',
+            description: dbProduct.description || '',
+            offers: offersArray,
+            source: primaryOffer.store
+        };
+    },
+
+    toDatabase: (frontendProduct) => {
+        if (!frontendProduct) return null;
+        return {
+            ml_id: frontendProduct.ml_id || frontendProduct.id,
+            title: frontendProduct.title,
+            category: frontendProduct.category_id || frontendProduct.category || 'General',
+            image_url: frontendProduct.thumbnail || frontendProduct.image || null,
+            brand: frontendProduct.brand || ''
+        };
+    }
+};
+
+const ListAdapter = {
+    toDatabase: (frontendList) => {
+        if (!frontendList) return null;
+        return {
+            name: frontendList.name,
+            user_id: frontendList.userId
+        };
+    },
+    toFrontend: (dbListRow) => {
+        if (!dbListRow) return null;
+        return {
+            id: dbListRow.id,
+            name: dbListRow.name,
+            created_at: dbListRow.created_at,
+            items: (dbListRow.list_items || []).map(li => {
+                if (!li.products) return null;
+                return {
+                    product_id: li.product_id,
+                    quantity: li.quantity,
+                    product: {
+                        id: li.products.id,
+                        ml_id: li.products.ml_id,
+                        title: li.products.title,
+                        thumbnail: li.products.image_url || 'https://via.placeholder.com/150',
+                        brand: li.products.brand || '',
+                        category: li.products.category || ''
+                    }
+                };
+            }).filter(Boolean)
+        };
+    }
+};
+
 // ---- AUTH ------------------------------------
 const AuthService = {
     isReady: () => _sb !== null,
@@ -55,9 +171,10 @@ const AuthService = {
         if (!session) return { error: { message: 'Inicia sesión para guardar tu alerta en la nube.' } };
 
         // 1. Asegurar que el producto existe en la DB y obtener su UUID (como en savePriceHistory)
+        const dbPayload = ProductAdapter.toDatabase(product);
         const { data: prodData, error: prodErr } = await _sb
             .from('products')
-            .upsert({ ml_id: product.id, title: product.title, image_url: product.image || null, brand: product.brand || '' }, { onConflict: 'ml_id' })
+            .upsert(dbPayload, { onConflict: 'ml_id' })
             .select('id').single();
             
         if (prodErr || !prodData) return { error: { message: 'Error al registrar el producto.' } };
@@ -348,7 +465,7 @@ const MLService = {
                 // Upsert product using ml_id as unique identifier
                 const { data: prodData, error: prodErr } = await _sb
                     .from('products')
-                    .upsert({ ml_id: p.id, title: p.title, image_url: p.image || null, brand: p.brand || '' }, { onConflict: 'ml_id' })
+                    .upsert({ ml_id: p.ml_id || p.id, title: p.title, image_url: p.image || null, brand: p.brand || '' }, { onConflict: 'ml_id' })
                     .select('id')
                     .single();
                 
@@ -407,21 +524,44 @@ const ListsService = {
         }
         
         try {
-            // 1. Insertar la lista y retornar la fila insertada con su UUID
+            // 1. Asegurar que todos los productos existen en la base de datos de Supabase y obtener sus UUIDs
+            const resolvedItems = [];
+            if (items && items.length > 0) {
+                for (const item of items) {
+                    const p = item.product;
+                    if (!p) continue;
+                    
+                    const dbPayload = ProductAdapter.toDatabase(p);
+                    const { data: prodData, error: prodErr } = await _sb
+                        .from('products')
+                        .upsert(dbPayload, { onConflict: 'ml_id' })
+                        .select('id')
+                        .single();
+                        
+                    if (prodErr || !prodData) {
+                        console.warn('[Supabase Lists] Error upserting product:', prodErr);
+                        continue;
+                    }
+                    resolvedItems.push({ product_uuid: prodData.id, quantity: item.quantity || 1 });
+                }
+            }
+
+            // 2. Insertar la lista y retornar la fila insertada con su UUID
+            const listPayload = ListAdapter.toDatabase({ name, userId });
             const { data: listData, error: listError } = await _sb
                 .from('saved_lists')
-                .insert({ user_id: userId, name })
+                .insert(listPayload)
                 .select()
                 .single();
                 
             if (listError) throw listError;
             
-            // 2. Si hay productos en el carrito, insertarlos en la tabla relacional
-            if (items && items.length > 0) {
-                const itemsPayload = items.map(item => ({
+            // 3. Si hay productos resueltos, insertarlos en la tabla relacional
+            if (resolvedItems.length > 0) {
+                const itemsPayload = resolvedItems.map(ri => ({
                     list_id: listData.id,
-                    product_id: item.product_id,
-                    quantity: item.quantity || 1
+                    product_id: ri.product_uuid,
+                    quantity: ri.quantity
                 }));
                 
                 const { error: itemsError } = await _sb
@@ -468,23 +608,7 @@ const ListsService = {
             if (error) throw error;
             
             // Adaptador de formato para mantener compatibilidad con el procesamiento original de app.js
-            const formattedData = data.map(row => ({
-                id: row.id,
-                name: row.name,
-                created_at: row.created_at,
-                items: (row.list_items || []).map(li => ({
-                    product_id: li.product_id,
-                    quantity: li.quantity,
-                    product: li.products ? {
-                        id: li.products.id,
-                        ml_id: li.products.ml_id,
-                        title: li.products.title,
-                        thumbnail: li.products.image_url,
-                        brand: li.products.brand,
-                        category: li.products.category
-                    } : null
-                })).filter(item => item.product !== null)
-            }));
+            const formattedData = data.map(row => ListAdapter.toFrontend(row)).filter(Boolean);
             
             return { data: formattedData, error: null };
         } catch (e) {
@@ -600,39 +724,29 @@ const ProductsService = {
             
         if (error || !data) return null;
         
-        // Mapper to standardize Supabase output to mirror MercadoLibre schema expectations
-        return data.map(p => {
-            const offersArray = p.price_history && p.price_history.length > 0 ? 
-                p.price_history.map(ph => ({
-                    store: ph.store_id || 'chedraui',
-                    price: ph.price,
-                    shipping: ph.shipping || 0,
-                    delivery: 'Supermercado local',
-                    url: p.permalink || null
-                })) : [{
-                    store: 'desconocido',
-                    price: 0,
-                    shipping: 0,
-                    delivery: '',
-                    url: null
-                }];
+        return data.map(p => ProductAdapter.toFrontend(p)).filter(Boolean);
+    },
 
-            const primaryOffer = offersArray[0];
+    // Buscar producto por su código de barras en Supabase
+    getByBarcode: async (barcode) => {
+        if (!_sb) return null;
+        try {
+            const { data, error } = await _sb
+                .from('products')
+                .select(`
+                    id, ml_id, barcode, title, category, image_url, brand, description,
+                    price_history(store_id, price, shipping, source_url, scraped_at)
+                `)
+                .eq('barcode', barcode)
+                .maybeSingle();
 
-            return {
-                id: p.ml_id,
-                title: p.title,
-                price: primaryOffer.price,
-                thumbnail: p.image_url || 'https://via.placeholder.com/150',
-                seller: primaryOffer.store,
-                free_shipping: false,
-                brand: p.brand || '',
-                category_id: p.category || '',
-                description: p.description || '',
-                offers: offersArray,
-                source: primaryOffer.store
-            };
-        });
+            if (error || !data) return null;
+
+            return ProductAdapter.toFrontend(data);
+        } catch (err) {
+            console.warn('[ProductsService.getByBarcode] Error:', err.message);
+            return null;
+        }
     }
 };
 
@@ -701,6 +815,64 @@ const UserProfileService = {
     setPreferredStores: async (userId, storeIds) => {
         if (!_sb || !userId) return null;
         return UserProfileService.update(userId, { preferred_stores: storeIds });
+    }
+};
+
+// ---- PURCHASE HISTORY SERVICE ----------------
+const PurchaseService = {
+    recordPurchase: async (userId, storeId, itemsCount, totalPaid, totalAvoided, savedAmount) => {
+        if (!_sb) {
+            // LocalStorage fallback for anonymous users
+            try {
+                const history = JSON.parse(SafeStorage.getItem('m4u_purchase_history') || '[]');
+                const newRecord = {
+                    id: Math.random().toString(36).substring(2, 11),
+                    store_id: storeId,
+                    items_count: itemsCount,
+                    total_paid: totalPaid,
+                    total_avoided: totalAvoided,
+                    saved_amount: savedAmount,
+                    created_at: new Date().toISOString()
+                };
+                history.push(newRecord);
+                SafeStorage.setItem('m4u_purchase_history', JSON.stringify(history));
+                return { data: newRecord, error: null };
+            } catch (err) {
+                return { data: null, error: err.message };
+            }
+        }
+        if (!userId) return { data: null, error: 'User ID required' };
+        const { data, error } = await _sb
+            .from('purchase_history')
+            .insert({
+                user_id: userId,
+                store_id: storeId,
+                items_count: itemsCount,
+                total_paid: totalPaid,
+                total_avoided: totalAvoided,
+                saved_amount: savedAmount
+            })
+            .select()
+            .single();
+        return { data, error };
+    },
+
+    getHistory: async (userId) => {
+        if (!_sb) {
+            try {
+                const history = JSON.parse(SafeStorage.getItem('m4u_purchase_history') || '[]');
+                return history.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            } catch (err) {
+                return [];
+            }
+        }
+        if (!userId) return [];
+        const { data, error } = await _sb
+            .from('purchase_history')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+        return error ? [] : data;
     }
 };
 

@@ -19,6 +19,8 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Tesseract.js OCR library -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
     <!-- Toast Container -->
@@ -90,6 +92,9 @@
                     <input type="text" id="searchInput" placeholder="¿Qué necesitas hoy? (Ej. Leche, Huevo, Detergente...)" autocomplete="off">
                     <button id="openScannerBtn" class="scanner-btn" title="Escanear Código Físico">
                         <i data-lucide="scan-barcode" style="width:20px; height:20px;"></i>
+                    </button>
+                    <button id="openOcrBtn" class="scanner-btn" title="Escanear Ticket de Compra (OCR)" style="margin-right: 0.25rem;">
+                        <i data-lucide="receipt" style="width:20px; height:20px;"></i>
                     </button>
                     <button id="searchButton" class="btn-search">Buscar Precio</button>
                 </div>
@@ -216,6 +221,9 @@
                     <span id="signinBtnText">Ingresar a mi Cuenta</span>
                     <span id="signinBtnSpinner" style="display:none;">...</span>
                 </button>
+                <p style="color:var(--text-tertiary); font-size:0.75rem; text-align:center; margin-top:1rem; line-height:1.4;">
+                    Al ingresar, confirmas que aceptas nuestros <a href="terminos.html" target="_blank" style="color:var(--accent-color); text-decoration:none; font-weight:500;">Términos y Condiciones</a> y nuestro <a href="privacidad.html" target="_blank" style="color:var(--accent-color); text-decoration:none; font-weight:500;">Aviso de Privacidad</a>.
+                </p>
             </div>
 
             <!-- Formulario Registro -->
@@ -239,6 +247,9 @@
                     <span id="signupBtnText">Crear mi Cuenta Gratis</span>
                     <span id="signupBtnSpinner" style="display:none;">...</span>
                 </button>
+                <p style="color:var(--text-tertiary); font-size:0.75rem; text-align:center; margin-top:1rem; line-height:1.4;">
+                    Al registrarte, confirmas que aceptas nuestros <a href="terminos.html" target="_blank" style="color:var(--accent-color); text-decoration:none; font-weight:500;">Términos y Condiciones</a> y nuestro <a href="privacidad.html" target="_blank" style="color:var(--accent-color); text-decoration:none; font-weight:500;">Aviso de Privacidad</a>.
+                </p>
             </div>
 
 
@@ -266,6 +277,7 @@
                 <button class="tab-btn" data-tab="favoritos"><i data-lucide="heart"></i> Favoritos</button>
                 <button class="tab-btn" data-tab="alertas"><i data-lucide="bell"></i> Alertas</button>
                 <button class="tab-btn" data-tab="direcciones"><i data-lucide="map-pin"></i> Direcciones</button>
+                <button class="tab-btn" data-tab="ahorros"><i data-lucide="piggy-bank"></i> Ahorros</button>
             </div>
             
             <div class="cart-items" id="profileContentArea" style="background-color: var(--bg-primary);">
@@ -418,6 +430,104 @@
         </div>
     </div>
 
+    <!-- Modal Escáner de Ticket (OCR) -->
+    <div id="ocrModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px; padding: 2rem;">
+            <button class="modal-close" id="closeOcrModal"><i data-lucide="x"></i></button>
+            <h2 style="margin-bottom: 0.5rem; display:flex; align-items:center; gap:0.5rem;"><i data-lucide="receipt" style="color:var(--accent-color);"></i> Escáner de Tickets (OCR)</h2>
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom: 1.5rem;">Sube una foto de tu ticket de compra para extraer automáticamente los productos y agregarlos a tu carrito.</p>
+            
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--text-secondary);">
+                <i data-lucide="info" style="color: var(--accent-color); width: 18px; height: 18px; flex-shrink: 0;"></i>
+                <span><strong>Aviso de datos:</strong> La primera ejecución descarga archivos de reconocimiento de idioma (~15MB). Te sugerimos utilizar una red Wi-Fi.</span>
+            </div>
+
+            <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 2.5rem 1.5rem; text-align: center; background: var(--bg-tertiary); margin-bottom: 1.5rem; cursor: pointer; transition: border-color 0.2s;" id="ocrDropzone" onclick="document.getElementById('ocrInputFile').click()">
+                <i data-lucide="upload-cloud" style="width: 48px; height: 48px; color: var(--text-tertiary); margin: 0 auto 1rem;"></i>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">Haz clic para subir o arrastra una foto</div>
+                <div style="font-size: 0.75rem; color: var(--text-tertiary);">Soporta PNG, JPG, JPEG</div>
+                <input type="file" id="ocrInputFile" accept="image/*" style="display: none;">
+            </div>
+
+            <!-- OCR Progress -->
+            <div id="ocrProgressContainer" style="display: none; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 500;">
+                    <span id="ocrProgressStatus">Procesando imagen con IA...</span>
+                    <span id="ocrProgressPercent">0%</span>
+                </div>
+                <div style="background: var(--border-color); height: 8px; border-radius: 99px; overflow: hidden;">
+                    <div id="ocrProgressBar" style="background: var(--accent-color); width: 0%; height: 100%; transition: width 0.2s;"></div>
+                </div>
+            </div>
+
+            <!-- OCR Results -->
+            <div id="ocrResultsContainer" style="display: none;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; font-weight: 600;">Productos detectados:</h3>
+                <div id="ocrDetectedItems" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; background: var(--bg-secondary); margin-bottom: 1.5rem;">
+                    <!-- List of items to confirm -->
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button class="btn-outline" id="ocrCancelBtn" style="padding:0.6rem 1.2rem; font-size:0.9rem;">Cancelar</button>
+                    <button class="btn-search" id="ocrImportBtn" style="padding:0.6rem 1.2rem; font-size:0.9rem; margin:0;">Agregar a Carrito</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <!-- Footer Section -->
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-grid">
+                <!-- Brand Info -->
+                <div class="footer-brand">
+                    <a href="#" class="footer-logo">
+                        <i data-lucide="shopping-cart" class="logo-icon" style="color: #22c55e;"></i>
+                        <span>Market<span class="footer-logo-bold">4U</span></span>
+                    </a>
+                    <p class="footer-description">El comparador inteligente de supermercados de México. Ahorra tiempo y dinero comparando tus listas de compras en tiempo real en Soriana, Chedraui, HEB, La Comer y más.</p>
+                </div>
+                
+                <!-- Legal Links -->
+                <div class="footer-links-column">
+                    <h4 class="footer-title">Legal</h4>
+                    <a href="terminos.html" class="footer-link">Términos y Condiciones</a>
+                    <a href="privacidad.html" class="footer-link">Aviso de Privacidad</a>
+                </div>
+                
+                <!-- Support Links -->
+                <div class="footer-links-column">
+                    <h4 class="footer-title">Soporte</h4>
+                    <a href="mailto:soporte@market4u.mx" class="footer-link">Contacto</a>
+                    <span class="footer-link" style="cursor: default;">Versión 2.0.0</span>
+                </div>
+                
+                <!-- Newsletter -->
+                <div class="footer-subscribe">
+                    <h4 class="footer-title">Boletín</h4>
+                    <p class="footer-subscribe-text">Recibe alertas semanales de ofertas de tus supermercados preferidos en tu correo.</p>
+                    <div class="footer-form">
+                        <input type="email" placeholder="Tu correo electrónico" class="footer-input">
+                        <button class="footer-btn">Unirse</button>
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="footer-divider">
+            
+            <!-- Disclaimer Box -->
+            <div class="footer-disclaimer">
+                <strong>Exención de Responsabilidad (Disclaimer de Marcas):</strong> Market4U es un comparador de precios independiente. Las marcas, logotipos comerciales, imágenes y nombres de los supermercados (Walmart, Soriana, Chedraui, H-E-B, La Comer, Fresko, City Market, Jüsto, Amazon y Mercado Libre) son propiedad intelectual exclusiva de sus respectivos titulares de registro marcario en México y otros países. Su mención en este sitio se realiza únicamente de carácter descriptivo, referencial y para fines informativos del consumidor final, al amparo de lo dispuesto en el Artículo 170 de la Ley Federal de Protección a la Propiedad Industrial de México. Market4U no cuenta con patrocinio, asociación, afiliación o aprobación directa de ninguna de las cadenas comerciales mencionadas. Los precios provienen de consultas directas en los canales de venta públicos y están sujetos a variaciones sin previo aviso por parte de las tiendas.
+            </div>
+            
+            <!-- Bottom Info -->
+            <div class="footer-bottom">
+                <span>&copy; 2026 Market4U. Todos los derechos reservados.</span>
+                <span>Hecho con <span class="footer-heart">&hearts;</span> en México</span>
+            </div>
+        </div>
+    </footer>
+
     <!-- Scripts -->
     <script src="config.js?v=10"></script>
     <script src="mockData.js?v=12"></script>
@@ -425,7 +535,9 @@
     <script src="app.js?v=14"></script>
     <script>
         // Iniciar iconos al cargar
-        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        if (typeof IconManager !== 'undefined') {
+            IconManager.render();
+        } else if (typeof lucide !== 'undefined' && lucide.createIcons) {
             lucide.createIcons();
         } else {
             console.warn('[Lucide] La librería Lucide no está disponible.');

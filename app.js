@@ -3,18 +3,49 @@ console.log('%c✅ Market4U app.js v4 cache-busted cargado correctamente', 'back
 console.log('MLService disponible:', typeof MLService !== 'undefined');
 console.log('CONFIG.ML_SEARCH_URL:', typeof CONFIG !== 'undefined' ? CONFIG.ML_SEARCH_URL : 'CONFIG no definido');
 
-// Helper seguro para inicializar iconos de Lucide sin provocar crasheos por red o bloqueadores
-const safeCreateIcons = (options) => {
-    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-        try {
-            lucide.createIcons(options);
-        } catch (e) {
-            console.warn('[Lucide] Error al crear iconos:', e);
+const IconManager = {
+    render: (options) => {
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            try {
+                lucide.createIcons(options);
+            } catch (e) {
+                console.warn('[IconManager] Error rendering icons:', e);
+            }
+        } else {
+            console.warn('[IconManager] Lucide library not loaded.');
         }
-    } else {
-        console.warn('[Lucide] La librería Lucide no está cargada.');
     }
 };
+
+const safeCreateIcons = (options) => IconManager.render(options);
+
+
+
+const CatalogState = {
+    currentPage: 1,
+    activeFilters: new Set(),
+    get sortBy() { return document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'default'; },
+    set sortBy(val) {
+        const select = document.getElementById('sortSelect');
+        if (select) select.value = val;
+    },
+    resetPage: () => { CatalogState.currentPage = 1; },
+    update: (triggerML = false) => {
+        if (typeof applyFilters !== 'undefined') {
+            applyFilters(triggerML);
+        }
+    }
+};
+
+const activeStoreFilters = CatalogState.activeFilters;
+Object.defineProperty(window, 'activeStoreFilters', {
+    get() { return CatalogState.activeFilters; }
+});
+Object.defineProperty(window, 'currentPage', {
+    get() { return CatalogState.currentPage; },
+    set(val) { CatalogState.currentPage = val; }
+});
+
 
 // DOM Elements
 const resultsGrid = document.getElementById('resultsGrid');
@@ -47,8 +78,6 @@ const profileNameDisplay = document.getElementById('profileNameDisplay');
 const profileContentArea = document.getElementById('profileContentArea');
 const tabBtns = document.querySelectorAll('.tab-btn');
 
-let activeStoreFilters = new Set();
-
 // Notifications DOM
 const openNotificationsBtn = document.getElementById('openNotificationsBtn');
 const notificationsDropdown = document.getElementById('notificationsDropdown');
@@ -58,6 +87,21 @@ const notifList = document.getElementById('notifList');
 // Alert Modal DOM
 const alertModal = document.getElementById('alertModal');
 const closeAlertModal = document.getElementById('closeAlertModal');
+
+// OCR Modal DOM
+const ocrModal = document.getElementById('ocrModal');
+const openOcrBtn = document.getElementById('openOcrBtn');
+const closeOcrModal = document.getElementById('closeOcrModal');
+const ocrInputFile = document.getElementById('ocrInputFile');
+const ocrDropzone = document.getElementById('ocrDropzone');
+const ocrProgressContainer = document.getElementById('ocrProgressContainer');
+const ocrProgressStatus = document.getElementById('ocrProgressStatus');
+const ocrProgressPercent = document.getElementById('ocrProgressPercent');
+const ocrProgressBar = document.getElementById('ocrProgressBar');
+const ocrResultsContainer = document.getElementById('ocrResultsContainer');
+const ocrDetectedItems = document.getElementById('ocrDetectedItems');
+const ocrCancelBtn = document.getElementById('ocrCancelBtn');
+const ocrImportBtn = document.getElementById('ocrImportBtn');
 const alertProductImage = document.getElementById('alertProductImage');
 const alertProductTitle = document.getElementById('alertProductTitle');
 const alertProductPrice = document.getElementById('alertProductPrice');
@@ -97,8 +141,6 @@ let currentAlertProductId = null;
 let activeTab = 'listas'; // Modificado para que sea la primera pestaña
 let currentOffset = 0;
 let currentSearchLimit = 48;
-let currentPage = 1;
-
 let mockNotifications = [
     { id: 1, title: '¡Alerta de Precio Cumplida!', body: 'El Papel Pétalo bajó un 15% en HEB. Está en $65.00.', time: 'Hace 5 min', unread: true },
     { id: 2, title: 'Promoción 3x2 Detectada', body: 'Soriana acaba de lanzar 3x2 en Café Nescafé Soluble.', time: 'Hace 2 horas', unread: true },
@@ -115,11 +157,11 @@ const saveState = () => {
         alerts,
         addresses
     };
-    localStorage.setItem('market4u_state', JSON.stringify(data));
+    SafeStorage.setItem('market4u_state', JSON.stringify(data));
 };
 
 const loadState = () => {
-    const saved = localStorage.getItem('market4u_state');
+    const saved = SafeStorage.getItem('market4u_state');
     if (saved) {
         try {
             const data = JSON.parse(saved);
@@ -185,10 +227,12 @@ const loadState = () => {
 
 // Currency Formatter
 const formatCurrency = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return '$0.00';
     return new Intl.NumberFormat('es-MX', {
         style: 'currency',
         currency: 'MXN'
-    }).format(value);
+    }).format(num);
 };
 
 // Fuzzy Merging Algorithm for External Scraping
@@ -465,6 +509,7 @@ window.toggleStoreFilter = (storeKey) => {
     if(activeStoreFilters.has(storeKey)) activeStoreFilters.delete(storeKey);
     else activeStoreFilters.add(storeKey);
     initStoreFilters();
+    currentPage = 1;
     renderProducts(currentData);
 };
 
@@ -540,6 +585,8 @@ const renderProfileTab = () => {
             </div>
         `).join(''));
         safeCreateIcons();
+    } else if (activeTab === 'ahorros') {
+        renderSavingsDashboard();
     } else {
         const isFavorites = activeTab === 'favoritos';
         const rawIds = isFavorites ? Array.from(favorites) : alerts.map(a => a.productId);
@@ -563,7 +610,7 @@ const renderProfileTab = () => {
 
             return `
             <div class="cart-item">
-                <img src="${item.image}" alt="">
+                <img src="${item.image || 'https://via.placeholder.com/150'}" alt="">
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.title}</div>
                     ${extraInfoHTML}
@@ -780,7 +827,7 @@ const updateCartUI = () => {
     
     cartItemsContainer.innerHTML = cart.map((citem, idx) => `
         <div class="cart-item">
-            <img src="${citem.product.image}" alt="">
+            <img src="${citem.product.image || 'https://via.placeholder.com/150'}" alt="">
             <div class="cart-item-info">
                 <div class="cart-item-title">${citem.product.title}</div>
                 <div style="font-size: 0.8rem; color: var(--text-secondary)">Mejor precio indiv: ${formatCurrency(citem.product.bestOffer.price)}</div>
@@ -804,8 +851,9 @@ const updateCartUI = () => {
     const totalItems = cart.reduce((acc, citem) => acc + citem.quantity, 0);
     
     cart.forEach(citem => {
+        const offers = citem.product.offers || [];
         Object.keys(stores).forEach(storeKey => {
-            const offer = citem.product.offers.find(o => o.store === storeKey);
+            const offer = offers.find(o => o.store === storeKey);
             if(offer) storeTotals[storeKey].cost += (offer.price * citem.quantity);
             else storeTotals[storeKey].missing += citem.quantity;
         });
@@ -865,13 +913,30 @@ const syncListsFromSupabase = async () => {
         id: row.id,
         name: row.name,
         items: (row.items || []).map(i => {
-            const product = allData.find(p => p.id === i.product_id);
-            return product ? { product, quantity: i.quantity || 1 } : null;
+            if (!i.product) return null;
+            // Buscar por el ml_id o el id canónico del producto en allData
+            let product = allData.find(p => p.id === i.product.ml_id || p.ml_id === i.product.ml_id || p.id === i.product.id);
+            if (!product) {
+                // Reconstruir un producto fallback para evitar descartarlo de la lista
+                product = {
+                    id: i.product.ml_id || i.product.id,
+                    ml_id: i.product.ml_id,
+                    title: i.product.title,
+                    image: i.product.thumbnail || 'https://via.placeholder.com/150',
+                    brand: i.product.brand || '',
+                    category: i.product.category || 'Supermercado',
+                    bestOffer: { price: 0, store: 'desconocido' },
+                    sortedOffers: [],
+                    offers: []
+                };
+            }
+            return { product, quantity: i.quantity || 1 };
         }).filter(Boolean)
     })).filter(l => l.items.length > 0);
     if (remoteLists.length > 0) {
         savedLists = remoteLists;
         saveState();
+        renderProfileTab();
     }
 };
 
@@ -905,7 +970,7 @@ saveListBtn.addEventListener('click', async () => {
     
     // Guardar en Supabase si hay sesión
     if (user?.id && typeof ListsService !== 'undefined') {
-        const supabaseItems = cart.map(c => ({ product_id: c.product.id, quantity: c.quantity }));
+        const supabaseItems = cart.map(c => ({ product: c.product, quantity: c.quantity }));
         await ListsService.save(user.id, name, supabaseItems);
     }
     
@@ -1079,7 +1144,7 @@ window.openProductModal = async (id, tab = 'stores') => {
             <div class="pdp-container">
                 <div class="pdp-image-col" style="position:relative;">
                     ${hasPromoModal ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.85rem; font-weight:700; padding:4px 10px; border-radius:4px; z-index:5;">-${discountPctModal}%</span>` : ''}
-                    <img src="${product.image}" alt="${product.title}">
+                    <img src="${product.image || 'https://via.placeholder.com/150'}" alt="${product.title}">
                     <div class="pdp-desc-box">
                         <h3><i data-lucide="info" style="width:18px;"></i> Detalles del Producto</h3>
                         <p>${product.description || 'Descripción del producto no disponible.'}</p>
@@ -1093,9 +1158,9 @@ window.openProductModal = async (id, tab = 'stores') => {
                     <div class="pdp-action-bar" style="display:flex; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 2rem; align-items: stretch;">
                         
                         <div style="display:flex; align-items:center; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-primary);">
-                            <button onclick="const q = document.getElementById('pdpQty'); q.value = Math.max(1, parseInt(q.value)-1);" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&minus;</button>
+                            <button onclick="const q = document.getElementById('pdpQty'); q.value = Math.max(1, (parseInt(q.value) || 1) - 1);" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&minus;</button>
                             <input id="pdpQty" type="number" value="1" min="1" style="width: 40px; border:none; background:none; text-align:center; font-weight:600; color:var(--text-primary); outline:none; font-family:inherit; -webkit-appearance: none; margin: 0;" onchange="this.value = Math.max(1, parseInt(this.value) || 1)">
-                            <button onclick="const q = document.getElementById('pdpQty'); q.value = parseInt(q.value)+1;" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&plus;</button>
+                            <button onclick="const q = document.getElementById('pdpQty'); q.value = (parseInt(q.value) || 1) + 1;" style="padding: 0 0.75rem; border:none; background:none; cursor:pointer; font-size:1.2rem; font-weight:bold; color:var(--text-secondary);">&plus;</button>
                         </div>
 
                         <button onclick="addToCart('${product.id}', document.getElementById('pdpQty').value)" class="btn-primary" style="flex:1; padding: 0.75rem; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; display:flex; align-items:center; justify-content:center; gap: 0.5rem; font-size:1rem;">
@@ -1258,7 +1323,6 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
         redirectSuccess.style.display = 'flex';
     }, 2800);
 };
-        alertModal.classList.remove('active');
 // Notification Logic 
 const renderNotifications = () => {
     let unreads = mockNotifications.filter(n => n.unread).length;
@@ -1327,40 +1391,122 @@ window.showToast = (message, type = 'success', duration = 3500) => {
 };
 
 /* --- REAL BARCODE SCANNER --- */
-let html5QrCode = null;
+/* --- REAL BARCODE SCANNER --- */
+const BarcodeScannerController = {
+    scanner: null,
 
-openScannerBtn.addEventListener('click', () => {
-    scannerModal.classList.add('active');
-    safeCreateIcons();
-    
-    if (typeof Html5Qrcode === 'undefined') {
-        showToast('Biblioteca de escáner no disponible', 'error');
-        return;
+    start: async (containerId, onScanSuccess, onError) => {
+        if (typeof Html5Qrcode === 'undefined') {
+            throw new Error('Biblioteca de escáner no disponible');
+        }
+
+        // Limpiar cualquier instancia previa antes de arrancar
+        await BarcodeScannerController.stop();
+
+        BarcodeScannerController.scanner = new Html5Qrcode(containerId);
+        try {
+            await BarcodeScannerController.scanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                onScanSuccess,
+                onError || (() => {})
+            );
+        } catch (err) {
+            BarcodeScannerController.cleanup();
+            throw err;
+        }
+    },
+
+    stop: async () => {
+        if (BarcodeScannerController.scanner) {
+            const currentScanner = BarcodeScannerController.scanner;
+            BarcodeScannerController.scanner = null;
+            try {
+                if (currentScanner.isScanning) {
+                    await currentScanner.stop();
+                }
+            } catch (e) {
+                console.warn('[ScannerController] Error stopping scanner:', e);
+            } finally {
+                try {
+                    currentScanner.clear();
+                } catch (e) {}
+            }
+        }
+    },
+
+    cleanup: () => {
+        BarcodeScannerController.scanner = null;
     }
+};
+
+openScannerBtn.addEventListener('click', async () => {
+    scannerModal.classList.add('active');
+    IconManager.render();
+    document.getElementById('scanStatus').textContent = '';
     
-    html5QrCode = new Html5Qrcode('readerContainer');
-    html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-            // Buscar producto por código en el mock (simulamos match)
-            const matched = allData.find(p => p.id === decodedText) || allData[Math.floor(Math.random() * allData.length)];
-            stopScanner();
-            openProductModal(matched.id);
-            showToast(`Producto encontrado: ${matched.title}`, 'success');
-        },
-        () => {} // ignorar errores de frame
-    ).catch((err) => {
-        document.getElementById('scanStatus').textContent = 'No se pudo acceder a la cámara: ' + err;
-        showToast('Permiso de cámara denegado', 'error');
-    });
+    try {
+        await BarcodeScannerController.start(
+            'readerContainer',
+            async (decodedText) => {
+                await BarcodeScannerController.stop();
+                scannerModal.classList.remove('active');
+                showToast('Buscando producto...', 'info');
+                try {
+                    // 1. Intentar buscar en memoria local primero
+                    let matched = allData.find(p => p.barcode === decodedText || p.id === decodedText || p.ml_id === decodedText);
+                    
+                    // 2. Si no está en memoria, buscar en la base de datos de Supabase
+                    if (!matched && typeof ProductsService !== 'undefined') {
+                        const dbProd = await ProductsService.getByBarcode(decodedText);
+                        if (dbProd) {
+                            const processed = processProducts([dbProd])[0];
+                            if (processed) {
+                                allData.push(processed);
+                                matched = processed;
+                            }
+                        }
+                    }
+                    
+                    // 3. Si no está en la base de datos, intentar buscar por código en la API (gatilla scrapers en tiempo real)
+                    if (!matched) {
+                        const searchUrl = `/api/search?q=${encodeURIComponent(decodedText)}`;
+                        const res = await fetch(searchUrl);
+                        if (res.ok) {
+                            const searchData = await res.json();
+                            if (searchData.results && searchData.results.length > 0) {
+                                const processedList = processProducts(searchData.results);
+                                processedList.forEach(p => {
+                                    if (!allData.some(x => x.id === p.id)) {
+                                        allData.push(p);
+                                    }
+                                });
+                                matched = processedList[0];
+                            }
+                        }
+                    }
+
+                    if (matched) {
+                        openProductModal(matched.id);
+                        showToast(`Producto encontrado: ${matched.title}`, 'success');
+                    } else {
+                        showToast(`No se encontró ningún producto para el código: ${decodedText}. Intenta buscarlo por nombre.`, 'warning', 6000);
+                    }
+                } catch (err) {
+                    console.error('[Barcode Search Error]', err);
+                    showToast('Error al buscar el producto escaneado.', 'error');
+                }
+            },
+            () => {} // ignorar errores de frame
+        );
+    } catch (err) {
+        document.getElementById('scanStatus').textContent = 'No se pudo acceder a la cámara: ' + err.message;
+        showToast(err.message || 'Permiso de cámara denegado', 'error');
+    }
 });
 
-function stopScanner() {
-    if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().then(() => html5QrCode.clear()).catch(() => {});
-        html5QrCode = null;
-    }
+async function stopScanner() {
+    await BarcodeScannerController.stop();
     scannerModal.classList.remove('active');
 }
 
@@ -1544,8 +1690,8 @@ logoutBtn.addEventListener('click', () => {
     saveState();
     
     // Limpiar localStorage cache de Supabase genuina
-    Object.keys(localStorage).forEach(k => {
-        if(k.startsWith('sb-') || k.includes('supabase')) localStorage.removeItem(k);
+    SafeStorage.keys().forEach(k => {
+        if(k.startsWith('sb-') || k.includes('supabase')) SafeStorage.removeItem(k);
     });
 
     profileModal.classList.remove('active');
@@ -1782,7 +1928,10 @@ searchInput.addEventListener('input', () => {
     currentPage = 1;
     applyFilters(true);
 });
-sortSelect.addEventListener('change', () => applyFilters(false));
+sortSelect.addEventListener('change', () => {
+    currentPage = 1;
+    applyFilters(false);
+});
 searchButton.addEventListener('click', () => {
     clearTimeout(mlSearchTimeout);
     isSearchingML = false;   // forzar re-búsqueda aunque haya una en curso
@@ -1796,6 +1945,27 @@ searchButton.addEventListener('click', () => {
     // Lanzar ML inmediatamente (sin debounce)
     const query = searchInput.value.toLowerCase().trim();
     if (query.length >= 3) runMLSearch(query, false);
+});
+
+document.getElementById('globalCitySelector')?.addEventListener('change', async (e) => {
+    const val = e.target.value;
+    SafeStorage.setItem('m4u_selected_city', val);
+    if (user && typeof UserProfileService !== 'undefined') {
+        await UserProfileService.update(user.id, { city: val });
+    }
+    showToast(`Ubicación actualizada: ${val.toUpperCase()}`, 'success');
+    
+    // Si hay una búsqueda activa, re-lanzar con la nueva ciudad
+    const query = searchInput.value.toLowerCase().trim();
+    if (query.length >= 3) {
+        clearTimeout(mlSearchTimeout);
+        isSearchingML = false;
+        lastMLQuery = '';
+        currentOffset = 0;
+        currentPage = 1;
+        applyFilters(false);
+        runMLSearch(query, false);
+    }
 });
 
 /* --- MASSIVE MATRIX LOGIC --- */
@@ -1843,6 +2013,23 @@ document.getElementById('openMatrixModalBtn').addEventListener('click', () => {
         }
     });
     
+    const registerButtons = `
+        <tr style="background:var(--bg-primary);">
+            <td style="text-align:right; font-weight:600; font-size:0.9rem; border-right:1px solid var(--border-color); padding: 12px 16px;">Acción:</td>
+            ${Object.keys(stores).map(sKey => {
+                const total = totals[sKey];
+                if (total <= 0) return `<td style="text-align:center; color:var(--text-tertiary);">-</td>`;
+                return `
+                    <td style="text-align:center; padding: 12px 8px;">
+                        <button class="btn-save-purchase" onclick="window.confirmPurchase('${sKey}')" style="background: var(--accent-color); color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: background 0.2s; box-shadow: var(--shadow-sm);">
+                            <i data-lucide="piggy-bank" style="width:14px; height:14px;"></i> Registrar
+                        </button>
+                    </td>
+                `;
+            }).join('')}
+        </tr>
+    `;
+
     const tfoot = `
         <tr style="background:var(--bg-secondary);">
             <td style="text-align:right; font-weight:bold; font-size:1.1rem; border-right:1px solid var(--border-color);">Total Carrito:</td>
@@ -1861,6 +2048,7 @@ document.getElementById('openMatrixModalBtn').addEventListener('click', () => {
                 return `<td class="${isBest ? 'best-cell' : ''}" style="text-align:center; color:${total === 0 ? 'var(--text-tertiary)' : 'inherit'}">${total > 0 ? cellContent : 'N/A'}</td>`;
             }).join('')}
         </tr>
+        ${registerButtons}
     `;
     
     document.getElementById('matrixTableBody').innerHTML = `
@@ -1885,10 +2073,461 @@ document.getElementById('openMatrixModalBtn').addEventListener('click', () => {
 
 closeMatrixModal.addEventListener('click', () => matrixModal.classList.remove('active'));
 
+window.confirmPurchase = async (storeId) => {
+    if (cart.length === 0) return showToast('No hay productos en tu carrito para registrar.', 'warning');
+    
+    // Calcular totales para todas las tiendas en el carrito actual
+    const totals = {};
+    const missingCounts = {};
+    Object.keys(stores).forEach(k => { totals[k] = 0; missingCounts[k] = 0; });
+    
+    cart.forEach(citem => {
+        Object.keys(stores).forEach(sKey => {
+            const offer = citem.product.offers?.find(o => o.store === sKey);
+            if (offer) {
+                totals[sKey] += (offer.price * citem.quantity);
+            } else {
+                missingCounts[sKey] += citem.quantity;
+            }
+        });
+    });
+    
+    const chosenTotal = totals[storeId];
+    if (!chosenTotal || chosenTotal <= 0) return showToast('No se puede registrar compra en esta tienda.', 'error');
+    
+    // Encontrar el total más caro (entre tiendas con listas completas, o la más cara en general si no hay completas)
+    let maxTotal = 0;
+    const completeTotals = Object.keys(stores).filter(k => missingCounts[k] === 0 && totals[k] > 0).map(k => totals[k]);
+    
+    if (completeTotals.length > 0) {
+        maxTotal = Math.max(...completeTotals);
+    } else {
+        maxTotal = Math.max(...Object.keys(stores).map(k => totals[k]));
+    }
+    
+    // Si la opción elegida es más cara que el máximo calculado (por ej, con items faltantes), ajustamos
+    if (maxTotal < chosenTotal) {
+        maxTotal = chosenTotal;
+    }
+    
+    const savedAmount = maxTotal - chosenTotal;
+    const itemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+    
+    const storeName = stores[storeId]?.name || storeId;
+    
+    // Solicitar confirmación al usuario
+    const confirmRegister = confirm(`¿Quieres registrar esta compra en ${storeName}?
+Total pagado: ${formatCurrency(chosenTotal)}
+Ahorro estimado vs alternativa cara: ${formatCurrency(savedAmount)}`);
+    
+    if (!confirmRegister) return;
+    
+    const userId = user?.id || null;
+    const { data, error } = await PurchaseService.recordPurchase(
+        userId,
+        storeId,
+        itemsCount,
+        chosenTotal,
+        maxTotal,
+        savedAmount
+    );
+    
+    if (error) {
+        showToast(`Error al registrar la compra: ${error}`, 'error');
+    } else {
+        showToast(`¡Compra registrada con éxito! Ahorro de ${formatCurrency(savedAmount)} guardado.`, 'success');
+        matrixModal.classList.remove('active');
+        
+        // Vaciar el carrito
+        cart = [];
+        saveState();
+        updateCartUI();
+        
+        // Si la pestaña de perfil está activa, actualizar el panel
+        const profileModal = document.getElementById('profileModal');
+        if (profileModal && profileModal.classList.contains('active') && activeTab === 'ahorros') {
+            renderSavingsDashboard();
+        }
+    }
+};
+
+const renderSavingsDashboard = async () => {
+    if (!profileContentArea) return;
+    profileContentArea.innerHTML = `
+        <div style="display:flex; justify-content:center; align-items:center; padding: 2rem;">
+            <div class="spinner" style="width:32px; height:32px;"></div>
+        </div>
+    `;
+    
+    const userId = user?.id || null;
+    const history = await PurchaseService.getHistory(userId);
+    
+    let totalSaved = 0;
+    let totalPaid = 0;
+    let totalItems = 0;
+    
+    if (history && history.length > 0) {
+        history.forEach(item => {
+            totalSaved += parseFloat(item.saved_amount || 0);
+            totalPaid += parseFloat(item.total_paid || 0);
+            totalItems += parseInt(item.items_count || 0);
+        });
+    }
+    
+    let historyRows = '';
+    if (!history || history.length === 0) {
+        historyRows = `<tr><td colspan="4" style="text-align:center; color:var(--text-tertiary); padding: 1.5rem;">No has registrado compras todavía.</td></tr>`;
+    } else {
+        historyRows = history.map(item => {
+            const s = stores[item.store_id] || { name: item.store_id, logo: '🛒', color: '#666', bgColor: '#eee' };
+            return `
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem 0.5rem; display:flex; align-items:center; gap:0.4rem;">
+                        <div class="store-logo-small" style="background-color: ${s.bgColor}; color: ${s.color}; width:20px; height:20px; font-size:0.7rem; margin:0;">${s.logo}</div>
+                        <span style="font-size:0.8rem; font-weight:500;">${s.name}</span>
+                    </td>
+                    <td style="padding: 0.75rem 0.5rem; font-size:0.8rem; text-align:center;">${item.items_count}</td>
+                    <td style="padding: 0.75rem 0.5rem; font-size:0.8rem; font-weight:600; text-align:right;">${formatCurrency(item.total_paid)}</td>
+                    <td style="padding: 0.75rem 0.5rem; font-size:0.8rem; font-weight:600; color:var(--success); text-align:right;">${formatCurrency(item.saved_amount)}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    profileContentArea.innerHTML = `
+        <div style="padding: 1rem; font-family: inherit;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1.5rem;">
+                <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.25rem; font-weight: 500;">Total Ahorrado</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: var(--success);">${formatCurrency(totalSaved)}</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.25rem; font-weight: 500;">Total Pagado</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary);">${formatCurrency(totalPaid)}</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.25rem; font-weight: 500;">Arts. Comprados</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: var(--accent-color);">${totalItems}</div>
+                </div>
+            </div>
+            
+            <h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; font-weight: 600; display:flex; align-items:center; gap:0.25rem;"><i data-lucide="history" style="width:16px;"></i> Historial de Ahorros</h3>
+            <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-secondary);">
+                            <th style="padding: 0.5rem; font-weight:600; text-align:left;">Tienda</th>
+                            <th style="padding: 0.5rem; font-weight:600; text-align:center;">Arts.</th>
+                            <th style="padding: 0.5rem; font-weight:600; text-align:right;">Pagado</th>
+                            <th style="padding: 0.5rem; font-weight:600; text-align:right;">Ahorrado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${historyRows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    safeCreateIcons();
+};
+
+// --- OCR RECEIPT SCANNER LOGIC ---
+let detectedOcrItems = [];
+
+if (openOcrBtn) {
+    openOcrBtn.addEventListener('click', () => {
+        // Reset modal UI
+        ocrDropzone.style.display = 'block';
+        ocrProgressContainer.style.display = 'none';
+        ocrResultsContainer.style.display = 'none';
+        if (ocrInputFile) ocrInputFile.value = '';
+        detectedOcrItems = [];
+        ocrModal.classList.add('active');
+    });
+}
+
+if (closeOcrModal) {
+    closeOcrModal.addEventListener('click', () => {
+        ocrModal.classList.remove('active');
+    });
+}
+
+if (ocrCancelBtn) {
+    ocrCancelBtn.addEventListener('click', () => {
+        ocrModal.classList.remove('active');
+    });
+}
+
+const cleanReceiptLine = (line) => {
+    // Quitar precios finales (ej. $28.50 o 28.50 o .50 o -28)
+    let clean = line.replace(/[\s\d.,$+-]+$/, '');
+    // Quitar código de barra inicial (ej. de 8 a 14 dígitos)
+    clean = clean.replace(/^\d{8,14}\s+/, '');
+    // Quitar cantidades iniciales (ej. 1, 2, 1.5, etc.)
+    clean = clean.replace(/^\d+(\.\d+)?\s*(x|uni|pz|pza|pcs)?\s+/i, '');
+    // Quitar IVA, IEPS y palabras fiscales/generales comunes
+    clean = clean.replace(/\s+(iva|ieps|exento|gravado|tasa|rfc|caja|folio)\b.*/i, '');
+    return clean.trim();
+};
+
+const isNoiseLine = (line) => {
+    const uppercaseLine = line.toUpperCase();
+    const noiseKeywords = [
+        'SORIANA', 'CHEDRAUI', 'LA COMER', 'HEB', 'WALMART', 'TICKET', 'SÚPER', 'SUPER', 
+        'RFC', 'FACTURA', 'COMPRA', 'FECHA', 'HORA', 'CAJA', 'CAJERO', 'FOLIO', 'SUBTOTAL', 
+        'TOTAL', 'PAGO', 'CAMBIO', 'EFECTIVO', 'TARJETA', 'DESCUENTO', 'IVA', 'IEPS', 
+        'CLIENTE', 'TEL', 'GRACIAS', 'BIENVENIDO', 'PROMO', 'ARTICULOS', 'ITEMS', 'SUCURSAL',
+        'DIRECCION', 'REGIMEN', 'MONTO', 'CANTIDAD', 'PRECIO', 'DESCRIPCION'
+    ];
+    return noiseKeywords.some(kw => uppercaseLine.includes(kw)) || line.length < 4 || /^[0-9\s.,$+*-]+$/.test(line);
+};
+
+const findBestOcrMatch = async (query) => {
+    if (!query) return null;
+    
+    // Tokens de la línea del ticket
+    const queryTokens = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(t => t.length > 2);
+    if (queryTokens.length === 0) return null;
+    
+    const calculateScore = (p) => {
+        const titleTokens = p.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(t => t.length > 2);
+        const intersection = queryTokens.filter(t => titleTokens.includes(t)).length;
+        return intersection / Math.max(queryTokens.length, titleTokens.length);
+    };
+
+    // 1. Intentar con memoria local primero
+    let bestProduct = null;
+    let maxScore = 0;
+    
+    for (const p of allData) {
+        const score = calculateScore(p);
+        if (score > maxScore) {
+            maxScore = score;
+            bestProduct = p;
+        }
+    }
+    
+    // Si la coincidencia local es aceptable (>= 0.35), la usamos directamente
+    if (maxScore >= 0.35) return bestProduct;
+    
+    // 2. Si no es suficiente, buscar en la base de datos de Supabase
+    if (typeof ProductsService !== 'undefined' && ProductsService.search) {
+        try {
+            // Limpiar query para búsqueda (tomar las 2-3 palabras más largas/significativas del ticket)
+            const searchKeywords = queryTokens.slice(0, 3).join(' ');
+            if (searchKeywords.length >= 3) {
+                const dbResults = await ProductsService.search(searchKeywords);
+                if (dbResults && dbResults.length > 0) {
+                    const processedDb = processProducts(dbResults);
+                    
+                    // Evaluar los resultados de la base de datos
+                    for (const p of processedDb) {
+                        const score = calculateScore(p);
+                        if (score > maxScore) {
+                            maxScore = score;
+                            bestProduct = p;
+                        }
+                        // Ir guardando en memoria por si el usuario abre detalles
+                        if (!allData.some(x => x.id === p.id)) {
+                            allData.push(p);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[OCR Match DB Error]', e);
+        }
+    }
+    
+    return maxScore >= 0.25 ? bestProduct : null;
+};
+
+const processOcrFile = async (file) => {
+    if (typeof Tesseract === 'undefined') {
+        showToast('La librería de OCR (Tesseract.js) no se cargó correctamente. Inténtalo de nuevo.', 'error');
+        return;
+    }
+    
+    ocrDropzone.style.display = 'none';
+    ocrProgressContainer.style.display = 'block';
+    ocrProgressBar.style.width = '0%';
+    ocrProgressPercent.innerText = '0%';
+    ocrProgressStatus.innerText = 'Inicializando motor OCR...';
+    
+    try {
+        const result = await Tesseract.recognize(
+            file,
+            'spa',
+            {
+                logger: m => {
+                    if (m.status === 'recognizing') {
+                        const pct = Math.round(m.progress * 100);
+                        ocrProgressBar.style.width = `${pct}%`;
+                        ocrProgressPercent.innerText = `${pct}%`;
+                        ocrProgressStatus.innerText = 'Reconociendo texto del ticket...';
+                    }
+                }
+            }
+        );
+        
+        const text = result.data.text || '';
+        const lines = text.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+            
+        detectedOcrItems = [];
+        const matchPromises = [];
+        
+        for (const line of lines) {
+            const cleaned = cleanReceiptLine(line);
+            if (cleaned && !isNoiseLine(cleaned)) {
+                matchPromises.push((async () => {
+                    const matchedProduct = await findBestOcrMatch(cleaned);
+                    return {
+                        originalLine: cleaned,
+                        match: matchedProduct
+                    };
+                })());
+            }
+        }
+        
+        // Esperar que todas las consultas de base de datos se ejecuten concurrentemente
+        detectedOcrItems = await Promise.all(matchPromises);
+        
+        ocrProgressContainer.style.display = 'none';
+        ocrResultsContainer.style.display = 'block';
+        
+        if (detectedOcrItems.length === 0) {
+            ocrDetectedItems.innerHTML = `<p style="text-align:center; color:var(--text-tertiary); padding:1.5rem; font-size:0.9rem;">No pudimos detectar productos legibles en esta foto. Intenta con una toma más clara o acércala más.</p>`;
+            if (ocrImportBtn) {
+                ocrImportBtn.disabled = true;
+                ocrImportBtn.style.opacity = 0.5;
+            }
+        } else {
+            if (ocrImportBtn) {
+                ocrImportBtn.disabled = false;
+                ocrImportBtn.style.opacity = 1;
+            }
+            ocrDetectedItems.innerHTML = detectedOcrItems.map((item, idx) => {
+                const match = item.match;
+                const matchHTML = match ? `
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem; font-size:0.8rem; background: var(--bg-tertiary); padding:0.25rem 0.5rem; border-radius:4px; border:1px solid var(--border-color);">
+                        <img src="${match.image}" style="width:24px; height:24px; border-radius:2px; object-fit:cover;">
+                        <span style="font-weight:600; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:260px;">${match.title}</span>
+                        <span style="color:var(--success); font-weight:700; margin-left:auto;">${formatCurrency(match.bestOffer.price)}</span>
+                    </div>
+                ` : `<div style="font-size:0.75rem; color:var(--text-tertiary); margin-top:0.25rem; font-style:italic;">Sin coincidencia exacta en catálogo local.</div>`;
+                
+                return `
+                    <div style="padding:0.5rem; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:0.25rem;">
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--text-primary);">
+                            <input type="checkbox" data-index="${idx}" checked style="cursor:pointer; width:16px; height:16px; accent-color:var(--accent-color);">
+                            <span>${item.originalLine}</span>
+                        </label>
+                        ${matchHTML}
+                    </div>
+                `;
+            }).join('');
+        }
+        safeCreateIcons();
+    } catch (err) {
+        console.error('[OCR Error]', err);
+        showToast(`Error al procesar OCR: ${err.message}`, 'error');
+        ocrProgressContainer.style.display = 'none';
+        ocrDropzone.style.display = 'block';
+    }
+};
+
+if (ocrInputFile) {
+    ocrInputFile.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            processOcrFile(e.target.files[0]);
+        }
+    });
+}
+
+// Drag & Drop
+if (ocrDropzone) {
+    ocrDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        ocrDropzone.style.borderColor = 'var(--accent-color)';
+        ocrDropzone.style.backgroundColor = 'var(--bg-secondary)';
+    });
+    ocrDropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        ocrDropzone.style.borderColor = 'var(--border-color)';
+        ocrDropzone.style.backgroundColor = 'var(--bg-tertiary)';
+    });
+    ocrDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        ocrDropzone.style.borderColor = 'var(--border-color)';
+        ocrDropzone.style.backgroundColor = 'var(--bg-tertiary)';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            processOcrFile(e.dataTransfer.files[0]);
+        }
+    });
+}
+
+// Import Action
+if (ocrImportBtn) {
+    ocrImportBtn.addEventListener('click', () => {
+        const checkboxes = ocrDetectedItems.querySelectorAll('input[type="checkbox"]');
+        let importedCount = 0;
+        let unmatchedCount = 0;
+        
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                const idx = parseInt(cb.getAttribute('data-index'));
+                const item = detectedOcrItems[idx];
+                if (item && item.match) {
+                    addToCart(item.match, 1);
+                    importedCount++;
+                } else {
+                    unmatchedCount++;
+                }
+            }
+        });
+        
+        if (importedCount > 0) {
+            showToast(`¡Importación exitosa! Se agregaron ${importedCount} productos a tu carrito.`, 'success');
+        }
+        if (unmatchedCount > 0) {
+            showToast(`${unmatchedCount} productos no tenían coincidencia local. Por favor, búscalos manualmente.`, 'warning');
+        }
+        
+        ocrModal.classList.remove('active');
+    });
+}
+
 // INITIALIZE
+const syncCityFromProfile = async (userId) => {
+    if (typeof UserProfileService !== 'undefined' && userId) {
+        try {
+            const profile = await UserProfileService.get(userId);
+            if (profile && profile.city) {
+                const citySelect = document.getElementById('globalCitySelector');
+                if (citySelect) {
+                    citySelect.value = profile.city;
+                    SafeStorage.setItem('m4u_selected_city', profile.city);
+                }
+            }
+        } catch (e) {
+            console.warn('[City Sync] Error fetching profile:', e);
+        }
+    }
+};
+
 allData = processProducts(products);
 currentData = [...allData];
 loadState();
+
+// Restore location selector from local storage
+const localCity = SafeStorage.getItem('m4u_selected_city');
+if (localCity) {
+    const citySelect = document.getElementById('globalCitySelector');
+    if (citySelect) citySelect.value = localCity;
+}
 
 initStoreFilters();
 renderProducts(currentData);
@@ -1921,6 +2560,7 @@ renderNotifications();
             let welcomeName = user.name;
             if (welcomeName === 'pablobesoytrigueros') welcomeName = 'Pablo';
             showToast(`¡Bienvenido, ${welcomeName}!`, 'success');
+            await syncCityFromProfile(session.user.id);
             await syncListsFromSupabase();
         } else if (user) {
             user = null;
@@ -1939,6 +2579,7 @@ renderNotifications();
         };
         saveState();
         renderUserNav();
+        await syncCityFromProfile(session.user.id);
         await syncListsFromSupabase();
         console.log('[Market4U] Sesión restaurada:', user.name);
     }

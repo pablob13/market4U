@@ -32,6 +32,10 @@ on conflict (id) do nothing;
 alter table products 
 add column if not exists category_id text references categories(id) on delete set null;
 
+-- 2b. AGREGAR COLUMNA DE CIUDAD A USER_PROFILES
+alter table user_profiles
+add column if not exists city text default 'cdmx';
+
 -- 3. CREAR TABLA: list_items (Normalización de las listas de compra)
 create table if not exists list_items (
   id          uuid primary key default uuid_generate_v4(),
@@ -112,3 +116,33 @@ create policy "Users see own searches" on user_searches
 drop policy if exists "Users insert own searches" on user_searches;
 create policy "Users insert own searches" on user_searches
   for insert with check (auth.uid() = user_id or user_id is null);
+
+-- 7. AGREGAR COLUMNA DE CÓDIGO POSTAL A USER_PROFILES
+alter table user_profiles
+add column if not exists zip_code text;
+
+-- 8. CREAR TABLA: purchase_history (Historial de Ahorros)
+create table if not exists purchase_history (
+  id               uuid primary key default uuid_generate_v4(),
+  user_id          uuid references auth.users(id) on delete cascade,
+  store_id         text references stores(id),
+  items_count      integer not null,
+  total_paid       numeric(10,2) not null,
+  total_avoided    numeric(10,2) not null,
+  saved_amount     numeric(10,2) not null,
+  created_at       timestamptz default now()
+);
+
+alter table purchase_history enable row level security;
+
+drop policy if exists "Users see own purchase history" on purchase_history;
+create policy "Users see own purchase history" on purchase_history
+  for all using (auth.uid() = user_id);
+
+-- 9. ÍNDICES DE RENDIMIENTO (Optimización)
+-- Índice para búsquedas rápidas por código de barras
+create index if not exists products_barcode_idx on products (barcode) where barcode is not null;
+
+-- Índice compuesto para acelerar la consulta de precios más recientes (current_prices)
+create index if not exists price_history_query_idx on price_history (product_id, store_id, scraped_at desc);
+

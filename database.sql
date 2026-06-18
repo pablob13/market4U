@@ -188,6 +188,8 @@ create table if not exists user_profiles (
   id            uuid primary key references auth.users(id) on delete cascade,
   display_name  text,
   avatar_url    text,
+  city          text default 'cdmx',
+  zip_code      text,
   is_premium    boolean default false,
   premium_until timestamptz,
   preferred_stores text[] default '{}',
@@ -243,3 +245,31 @@ create policy "Users see own searches" on user_searches
   for select using (auth.uid() = user_id or user_id is null);
 create policy "Users insert own searches" on user_searches
   for insert with check (auth.uid() = user_id or user_id is null);
+
+-- =============================================
+-- TABLA: purchase_history (Historial de Ahorros)
+-- =============================================
+create table if not exists purchase_history (
+  id               uuid primary key default uuid_generate_v4(),
+  user_id          uuid references auth.users(id) on delete cascade,
+  store_id         text references stores(id),
+  items_count      integer not null,
+  total_paid       numeric(10,2) not null,
+  total_avoided    numeric(10,2) not null,
+  saved_amount     numeric(10,2) not null,
+  created_at       timestamptz default now()
+);
+
+alter table purchase_history enable row level security;
+create policy "Users see own purchase history" on purchase_history
+  for all using (auth.uid() = user_id);
+
+-- =============================================
+-- ÍNDICES DE RENDIMIENTO (Optimización)
+-- =============================================
+-- Índice para el escáner de códigos de barras (Búsqueda exacta)
+create index if not exists products_barcode_idx on products (barcode) where barcode is not null;
+
+-- Índice compuesto para acelerar la consulta de precios más recientes (current_prices)
+create index if not exists price_history_query_idx on price_history (product_id, store_id, scraped_at desc);
+

@@ -4,12 +4,18 @@
   "description": "Comparador de precios de supermercados en México",
   "private": true,
   "scripts": {
-    "build": "echo 'No build step needed for static site'"
+    "build": "rm -rf www && mkdir -p www && cp index.html app.js services.js config.js mockData.js styles.css sw.js manifest.json privacidad.html terminos.html www/"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@supabase/supabase-js": "^2.39.8"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0"
   }
 }

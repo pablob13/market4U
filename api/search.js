@@ -514,12 +514,27 @@ const saveProductsToSupabase = async (products) => {
             return;
         }
 
-        const upsertedData = await upsertRes.json();
-        if (!Array.isArray(upsertedData) || upsertedData.length === 0) return;
+        // Fetch all product UUIDs for the products we just synced (both new and existing)
+        const mlIds = productsPayload.map(p => p.ml_id);
+        const queryRes = await fetch(`${supabaseUrl}/rest/v1/products?select=id,ml_id&ml_id=in.(${mlIds.join(',')})`, {
+            headers: {
+                'apikey': supabaseAnonKey,
+                'Authorization': `Bearer ${supabaseAnonKey}`
+            }
+        });
+
+        if (!queryRes.ok) {
+            const errBody = await queryRes.text();
+            console.warn('[Supabase Sync] Product UUID fetch failed:', queryRes.status, errBody);
+            return;
+        }
+
+        const dbProducts = await queryRes.json();
+        if (!Array.isArray(dbProducts) || dbProducts.length === 0) return;
 
         // Map ml_id to database generated UUID
         const uuidMap = new Map();
-        for (const row of upsertedData) {
+        for (const row of dbProducts) {
             uuidMap.set(row.ml_id, row.id);
         }
 

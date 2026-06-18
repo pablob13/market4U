@@ -2029,6 +2029,11 @@ searchInput.addEventListener('input', () => {
     CatalogState.resetPage();
     applyFilters(true);
 });
+searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        searchButton.click();
+    }
+});
 sortSelect.addEventListener('change', () => {
     CatalogState.resetPage();
     applyFilters(false);

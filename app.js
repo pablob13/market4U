@@ -662,7 +662,23 @@ const renderProducts = (data) => {
     displayData = displayData.slice((currentPage - 1) * currentSearchLimit, currentPage * currentSearchLimit);
 
     if (displayData.length === 0) {
-        resultsGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-tertiary);">No se encontraron productos en las tiendas seleccionadas.</p>';
+        const query = (searchInput?.value || '').trim();
+        if (query.length === 0) {
+            resultsGrid.innerHTML = `
+                <p style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem; color: var(--text-tertiary); font-size: 0.95rem; font-weight: 500;">
+                    <i data-lucide="search" style="width: 32px; height: 32px; margin-bottom: 0.75rem; display: block; margin-left: auto; margin-right: auto; color: var(--accent-color); opacity: 0.8;"></i>
+                    Busca un producto o selecciona una categoría para empezar a comparar precios.
+                </p>
+            `;
+        } else {
+            resultsGrid.innerHTML = `
+                <p style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem; color: var(--text-tertiary); font-size: 0.95rem; font-weight: 500;">
+                    <i data-lucide="info" style="width: 32px; height: 32px; margin-bottom: 0.75rem; display: block; margin-left: auto; margin-right: auto; color: var(--text-tertiary); opacity: 0.8;"></i>
+                    No se encontraron productos para "${query}". Intenta con otra palabra clave.
+                </p>
+            `;
+        }
+        safeCreateIcons();
         return;
     }
     

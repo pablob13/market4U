@@ -1857,6 +1857,7 @@ searchInput.addEventListener('blur', () => {
 let mlSearchTimeout  = null;
 let isSearchingML    = false;
 let lastMLQuery      = '';   // evitar búsquedas repetidas con misma query
+let activeSearchToken = 0;   // evitar sobreescritura por peticiones lentas concurrentes
 
 // Utilidad: muestra / oculta el badge de carga ML
 const showMLBadge = (text, color = 'var(--accent-color)') => {
@@ -1914,9 +1915,10 @@ const hideMLBadge = (delay = 0) => {
 const runMLSearch = async (query, isPagination = false) => {
     if (!query || query.length < 3) return;
     if (typeof MLService === 'undefined') return;
-    if (isSearchingML) return;                 // evitar búsquedas paralelas
+    if (isPagination && isSearchingML) return;                 // evitar paginaciones paralelas
     if (!isPagination && query === lastMLQuery) return;         // no re-buscar lo mismo si no es paginación
 
+    const searchToken = ++activeSearchToken;
     isSearchingML = true;
     lastMLQuery   = query;
     showMLBadge(`⚡ Comparando en Market4U... ${isPagination ? '[Pagina ' + ((currentOffset/currentSearchLimit)+1) + ']' : ''}`);
@@ -1931,6 +1933,11 @@ const runMLSearch = async (query, isPagination = false) => {
             ])
         ]);
         
+        // Si hay una búsqueda más reciente en curso, ignorar este resultado para evitar desorden de red
+        if (searchToken !== activeSearchToken) {
+            return;
+        }
+
         let combinedQueue = [];
         if (dbResults && dbResults.length > 0) combinedQueue = combinedQueue.concat(dbResults);
         if (mlResults && mlResults.length > 0) combinedQueue = combinedQueue.concat(mlResults);
@@ -1977,7 +1984,9 @@ const runMLSearch = async (query, isPagination = false) => {
         hideMLBadge(4000);
 
     } catch (err) {
-        hideMLBadge();
+        if (searchToken === activeSearchToken) {
+            hideMLBadge();
+        }
         // Token expirado → instrucción clara al usuario
         if (err.message?.includes('401') || err.message?.includes('token')) {
             showToast('Token ML expirado. Actualiza ML_ACCESS_TOKEN en Supabase.', 'warning');
@@ -1985,7 +1994,9 @@ const runMLSearch = async (query, isPagination = false) => {
             console.warn('[ML]', err.message);
         }
     } finally {
-        isSearchingML = false;
+        if (searchToken === activeSearchToken) {
+            isSearchingML = false;
+        }
     }
 };
 
@@ -2018,7 +2029,7 @@ const applyFilters = (triggerML = false) => {
         if (query.length >= 3) {
             clearTimeout(mlSearchTimeout);
             lastMLQuery = '';  // reset para permitir re-búsqueda al cambiar query
-            mlSearchTimeout = setTimeout(() => runMLSearch(query, false), 700);
+            mlSearchTimeout = setTimeout(() => runMLSearch(query, false), 400);
         } else {
             hideMLBadge();
         }

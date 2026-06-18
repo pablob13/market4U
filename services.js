@@ -82,6 +82,7 @@ const ProductAdapter = {
             title: dbProduct.title,
             price: primaryOffer.price,
             thumbnail: dbProduct.image_url || 'https://via.placeholder.com/150',
+            image: dbProduct.image_url || 'https://via.placeholder.com/150',
             seller: primaryOffer.store,
             free_shipping: false,
             brand: dbProduct.brand || '',

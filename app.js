@@ -29,7 +29,10 @@ const CatalogState = {
         const select = document.getElementById('sortSelect');
         if (select) select.value = val;
     },
-    resetPage: () => { CatalogState.currentPage = 1; },
+    resetPage: () => {
+        CatalogState.currentPage = 1;
+        currentOffset = 0;
+    },
     update: (triggerML = false) => {
         if (typeof applyFilters !== 'undefined') {
             applyFilters(triggerML);
@@ -509,7 +512,7 @@ window.toggleStoreFilter = (storeKey) => {
     if(activeStoreFilters.has(storeKey)) activeStoreFilters.delete(storeKey);
     else activeStoreFilters.add(storeKey);
     initStoreFilters();
-    currentPage = 1;
+    CatalogState.resetPage();
     renderProducts(currentData);
 };
 
@@ -520,6 +523,7 @@ document.getElementById('homeNavBtn').addEventListener('click', (e) => {
     currentData = allData;
     activeStoreFilters.clear();
     initStoreFilters();
+    CatalogState.resetPage();
     renderProducts(allData);
     document.getElementById('pdpPage').classList.remove('active');
     document.getElementById('mainCatalog').style.display = 'block';
@@ -1924,20 +1928,18 @@ const applyFilters = (triggerML = false) => {
 };
 
 searchInput.addEventListener('input', () => {
-    currentOffset = 0;
-    currentPage = 1;
+    CatalogState.resetPage();
     applyFilters(true);
 });
 sortSelect.addEventListener('change', () => {
-    currentPage = 1;
+    CatalogState.resetPage();
     applyFilters(false);
 });
 searchButton.addEventListener('click', () => {
     clearTimeout(mlSearchTimeout);
     isSearchingML = false;   // forzar re-búsqueda aunque haya una en curso
     lastMLQuery   = '';      // forzar re-búsqueda aunque sea la misma query
-    currentOffset = 0;
-    currentPage = 1;
+    CatalogState.resetPage();
 
     applyFilters(false);
     document.getElementById('resultsTitle')?.scrollIntoView({ behavior: 'smooth' });
@@ -1961,8 +1963,7 @@ document.getElementById('globalCitySelector')?.addEventListener('change', async 
         clearTimeout(mlSearchTimeout);
         isSearchingML = false;
         lastMLQuery = '';
-        currentOffset = 0;
-        currentPage = 1;
+        CatalogState.resetPage();
         applyFilters(false);
         runMLSearch(query, false);
     }
@@ -2379,17 +2380,20 @@ const processOcrFile = async (file) => {
         detectedOcrItems = [];
         const matchPromises = [];
         
-        for (const line of lines) {
-            const cleaned = cleanReceiptLine(line);
-            if (cleaned && !isNoiseLine(cleaned)) {
-                matchPromises.push((async () => {
-                    const matchedProduct = await findBestOcrMatch(cleaned);
-                    return {
-                        originalLine: cleaned,
-                        match: matchedProduct
-                    };
-                })());
-            }
+        // Filtrar y deduplicar líneas válidas para optimizar la carga a la base de datos
+        const uniqueCleanedLines = Array.from(new Set(
+            lines.map(line => cleanReceiptLine(line))
+                 .filter(cleaned => cleaned && !isNoiseLine(cleaned))
+        )).slice(0, 25); // Limitar a un máximo de 25 líneas significativas para no saturar la red/DB
+        
+        for (const cleaned of uniqueCleanedLines) {
+            matchPromises.push((async () => {
+                const matchedProduct = await findBestOcrMatch(cleaned);
+                return {
+                    originalLine: cleaned,
+                    match: matchedProduct
+                };
+            })());
         }
         
         // Esperar que todas las consultas de base de datos se ejecuten concurrentemente

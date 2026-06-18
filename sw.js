@@ -37,14 +37,23 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch: network-first, fallback to cache
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
+    
+    try {
+        const url = new URL(event.request.url);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+    } catch (e) {
+        return;
+    }
+
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                const clone = response.clone();
-                caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                }
                 return response;
             })
             .catch(() => caches.match(event.request))

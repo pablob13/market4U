@@ -464,9 +464,10 @@ const MLService = {
             for (const p of products) {
                 if (!p.id) continue;
                 // Upsert product using ml_id as unique identifier
+                const dbPayload = ProductAdapter.toDatabase(p);
                 const { data: prodData, error: prodErr } = await _sb
                     .from('products')
-                    .upsert({ ml_id: p.ml_id || p.id, title: p.title, image_url: p.image || null, brand: p.brand || '' }, { onConflict: 'ml_id' })
+                    .upsert(dbPayload, { onConflict: 'ml_id' })
                     .select('id')
                     .single();
                 
@@ -806,8 +807,7 @@ const UserProfileService = {
         if (!_sb || !userId) return null;
         const { data, error } = await _sb
             .from('user_profiles')
-            .update(updates)
-            .eq('id', userId)
+            .upsert({ id: userId, ...updates })
             .select()
             .single();
         return { data, error };

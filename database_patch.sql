@@ -146,3 +146,8 @@ create index if not exists products_barcode_idx on products (barcode) where barc
 -- Índice compuesto para acelerar la consulta de precios más recientes (current_prices)
 create index if not exists price_history_query_idx on price_history (product_id, store_id, scraped_at desc);
 
+-- 10. REGISTRO DE SUPERMERCADOS METROPOLITANOS (Waldo's y Farmacias Guadalajara)
+insert into stores (id, name, logo, color, bg_color, base_url) values
+  ('waldos',       'Waldo\'s',      'W',  '#ffe600', '#cc0000', 'https://waldos.com.mx'),
+  ('farmacias_gdl','Farmacias Guadalajara', 'FG', '#ffffff', '#004b93', 'https://www.farmaciasguadalajara.com')
+on conflict (id) do nothing;

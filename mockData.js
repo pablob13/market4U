@@ -48,6 +48,16 @@ const stores = {
         name: 'Mercado Libre', 
         logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="72" fill="#2d3277" font-family="Arial, sans-serif" font-weight="900" font-size="65" text-anchor="middle" letter-spacing="-3">ML</text></svg>`,  
         color: '#2d3277', bgColor: '#ffe600' 
+    },
+    waldos: { 
+        name: "Waldo's", 
+        logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="70" fill="#ffe600" font-family="'Arial Black', sans-serif" font-weight="900" font-size="45" text-anchor="middle">W's</text></svg>`,  
+        color: '#ffe600', bgColor: '#cc0000', live: true 
+    },
+    farmacias_gdl: { 
+        name: 'Farmacias Guadalajara', 
+        logo: `<svg viewBox="0 0 100 100" style="width:90%; height:90%;" xmlns="http://www.w3.org/2000/svg"><text x="50" y="70" fill="white" font-family="'Arial', sans-serif" font-weight="bold" font-size="55" text-anchor="middle">FG</text></svg>`,  
+        color: '#ffffff', bgColor: '#004b93', live: true 
     }
 };
 

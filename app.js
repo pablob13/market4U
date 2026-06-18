@@ -19,6 +19,14 @@ const IconManager = {
 
 const safeCreateIcons = (options) => IconManager.render(options);
 
+const CITY_STORES = {
+    default: ['soriana', 'chedraui', 'lacomer', 'fresko', 'citymarket', 'justo', 'heb', 'waldos', 'farmacias_gdl'],
+    cdmx: ['soriana', 'chedraui', 'lacomer', 'fresko', 'citymarket', 'justo', 'waldos', 'farmacias_gdl'],
+    mty: ['soriana', 'chedraui', 'heb', 'justo', 'waldos', 'farmacias_gdl'],
+    gdl: ['soriana', 'chedraui', 'heb', 'lacomer', 'fresko', 'justo', 'waldos', 'farmacias_gdl'],
+    qro: ['soriana', 'chedraui', 'heb', 'lacomer', 'fresko', 'justo', 'waldos', 'farmacias_gdl']
+};
+
 
 
 const CatalogState = {
@@ -316,10 +324,16 @@ const mergeProducts = (products) => {
 
 // Process Data to find best pricing
 const processProducts = (productList) => {
+    const city = document.getElementById('globalCitySelector')?.value || 'default';
+    const activeStoresInCity = CITY_STORES[city.toLowerCase()] || CITY_STORES.default;
+
     return productList.map(item => {
+        // Filter offers to keep only the ones present in the selected city/region
+        const localOffers = (item.offers || []).filter(o => activeStoresInCity.includes(o.store));
+
         // Deduplicate multiple variants from the same store (pick cheapest)
         const storeMap = new Map();
-        for (const o of item.offers) {
+        for (const o of localOffers) {
             const currentTotal = (o.price ?? Infinity) + (o.shipping ?? 0);
             if (!storeMap.has(o.store)) {
                 storeMap.set(o.store, { raw: o, total: currentTotal });
@@ -466,6 +480,7 @@ window.promptNewAddress = () => {
 closeAddressModal.addEventListener('click', () => {
     addressModal.classList.remove('active');
 });
+addressModal.addEventListener('click', (e) => { if (e.target === addressModal) addressModal.classList.remove('active'); });
 
 saveAddressModalBtn.addEventListener('click', () => {
     const alias = inAlias.value.trim();
@@ -500,7 +515,9 @@ window.deleteAddress = (id) => {
 
 const storeFiltersContainer = document.getElementById('storeFiltersContainer');
 const initStoreFilters = () => {
-    const liveStoreKeys = Object.keys(stores).filter(k => stores[k].live);
+    const city = document.getElementById('globalCitySelector')?.value || 'default';
+    const activeStoresInCity = CITY_STORES[city.toLowerCase()] || CITY_STORES.default;
+    const liveStoreKeys = Object.keys(stores).filter(k => stores[k].live && activeStoresInCity.includes(k));
     storeFiltersContainer.innerHTML = liveStoreKeys.map(k => `
         <button onclick="toggleStoreFilter('${k}')" class="btn-outline" style="border-radius: 99px; padding: 0.25rem 0.75rem; font-size: 0.8rem; flex:none; user-select:none; transition:var(--transition); display:flex; align-items:center; gap:0.25rem; background: ${activeStoreFilters.has(k) ? stores[k].bgColor : 'transparent'}; color: ${activeStoreFilters.has(k) ? stores[k].color : 'var(--text-secondary)'}; border-color: ${activeStoreFilters.has(k) ? 'transparent' : 'var(--border-color)'};">
             <span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background-color: ${stores[k].bgColor}; color: ${stores[k].color};">${stores[k].logo}</span> ${stores[k].name}
@@ -912,7 +929,6 @@ const syncListsFromSupabase = async () => {
     if (!user?.id || !ListsService) return;
     const { data, error } = await ListsService.getAll(user.id);
     if (error || !data) return;
-    // Mergear: conservar listas con productos reales (locales y remote)
     const remoteLists = data.map(row => ({
         id: row.id,
         name: row.name,
@@ -927,6 +943,7 @@ const syncListsFromSupabase = async () => {
                     ml_id: i.product.ml_id,
                     title: i.product.title,
                     image: i.product.thumbnail || 'https://via.placeholder.com/150',
+                    thumbnail: i.product.thumbnail || 'https://via.placeholder.com/150',
                     brand: i.product.brand || '',
                     category: i.product.category || 'Supermercado',
                     bestOffer: { price: 0, store: 'desconocido' },
@@ -937,11 +954,18 @@ const syncListsFromSupabase = async () => {
             return { product, quantity: i.quantity || 1 };
         }).filter(Boolean)
     })).filter(l => l.items.length > 0);
-    if (remoteLists.length > 0) {
-        savedLists = remoteLists;
-        saveState();
-        renderProfileTab();
+    
+    // Combinar listas locales existentes y listas remotas evitando duplicar nombres
+    const mergedLists = [...remoteLists];
+    for (const localList of savedLists) {
+        if (!mergedLists.some(l => l.name.toLowerCase() === localList.name.toLowerCase())) {
+            mergedLists.push(localList);
+        }
     }
+    
+    savedLists = mergedLists;
+    saveState();
+    renderProfileTab();
 };
 
 document.getElementById('openSaveListPopupBtn').addEventListener('click', () => {
@@ -1515,6 +1539,7 @@ async function stopScanner() {
 }
 
 closeScannerBtn.addEventListener('click', stopScanner);
+scannerModal.addEventListener('click', (e) => { if (e.target === scannerModal || e.target === scannerModal.firstElementChild) stopScanner(); });
 
 /* --- EVENT LISTENERS --- */
 if(closePdpBtn) {
@@ -1526,6 +1551,7 @@ if(closePdpBtn) {
 }
 
 closeAlertModal.addEventListener('click', () => alertModal.classList.remove('active'));
+alertModal.addEventListener('click', (e) => { if (e.target === alertModal) alertModal.classList.remove('active'); });
 closeRedirectBtn.addEventListener('click', () => redirectModal.classList.remove('active'));
 
 openCartBtn.addEventListener('click', () => { cartModal.classList.add('active'); updateCartUI(); });
@@ -1674,15 +1700,14 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
 // Profile / Logout
 closeProfileModal.addEventListener('click', () => profileModal.classList.remove('active'));
 profileModal.addEventListener('click', (e) => { if (e.target === profileModal) profileModal.classList.remove('active'); });
-logoutBtn.addEventListener('click', () => {
+logoutBtn.addEventListener('click', async () => {
     logoutBtn.innerText = 'Saliendo...';
     logoutBtn.style.pointerEvents = 'none';
     
-    // Llamada no bloqueante (Fire and Forget)
     try {
-        if (AuthService.isReady()) AuthService.signOut().catch(e => console.warn(e));
+        if (AuthService.isReady()) await AuthService.signOut();
     } catch(err) {
-        // ...
+        console.warn('[Logout Error]', err);
     }
     
     // Limpieza agresiva frontend
@@ -1715,7 +1740,7 @@ tabBtns.forEach(btn => {
     });
 });
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', async (e) => {
     if (e.key === 'Escape') {
         cartModal.classList.remove('active');
         loginModal.classList.remove('active');
@@ -1723,6 +1748,19 @@ document.addEventListener('keydown', (e) => {
         redirectModal.classList.remove('active');
         alertModal.classList.remove('active');
         addressModal.classList.remove('active');
+        if (typeof matrixModal !== 'undefined') matrixModal.classList.remove('active');
+        if (typeof ocrModal !== 'undefined') ocrModal.classList.remove('active');
+        if (typeof saveListModal !== 'undefined') saveListModal.classList.remove('active');
+        if (typeof pdpPage !== 'undefined' && pdpPage.classList.contains('active')) {
+            pdpPage.classList.remove('active');
+            const heroSec = document.querySelector('.hero-section');
+            if (heroSec) heroSec.style.display = 'block';
+            const mainCat = document.getElementById('mainCatalog');
+            if (mainCat) mainCat.style.display = 'block';
+        }
+        if (typeof scannerModal !== 'undefined' && scannerModal.classList.contains('active')) {
+            await stopScanner();
+        }
     }
 });
 
@@ -1957,6 +1995,18 @@ document.getElementById('globalCitySelector')?.addEventListener('change', async 
     }
     showToast(`Ubicación actualizada: ${val.toUpperCase()}`, 'success');
     
+    // Reprocesar datos según las tiendas válidas de la nueva ciudad
+    if (allData && allData.length > 0) {
+        allData = processProducts(allData);
+    }
+    if (currentData && currentData.length > 0) {
+        currentData = processProducts(currentData);
+    }
+    
+    // Actualizar botones de filtros y refrescar vista
+    initStoreFilters();
+    applyFilters(false);
+    
     // Si hay una búsqueda activa, re-lanzar con la nueva ciudad
     const query = searchInput.value.toLowerCase().trim();
     if (query.length >= 3) {
@@ -1964,7 +2014,6 @@ document.getElementById('globalCitySelector')?.addEventListener('change', async 
         isSearchingML = false;
         lastMLQuery = '';
         CatalogState.resetPage();
-        applyFilters(false);
         runMLSearch(query, false);
     }
 });
@@ -2073,6 +2122,7 @@ document.getElementById('openMatrixModalBtn').addEventListener('click', () => {
 });
 
 closeMatrixModal.addEventListener('click', () => matrixModal.classList.remove('active'));
+matrixModal.addEventListener('click', (e) => { if (e.target === matrixModal) matrixModal.classList.remove('active'); });
 
 window.confirmPurchase = async (storeId) => {
     if (cart.length === 0) return showToast('No hay productos en tu carrito para registrar.', 'warning');
@@ -2253,6 +2303,9 @@ if (closeOcrModal) {
         ocrModal.classList.remove('active');
     });
 }
+if (ocrModal) {
+    ocrModal.addEventListener('click', (e) => { if (e.target === ocrModal) ocrModal.classList.remove('active'); });
+}
 
 if (ocrCancelBtn) {
     ocrCancelBtn.addEventListener('click', () => {
@@ -2275,7 +2328,7 @@ const cleanReceiptLine = (line) => {
 const isNoiseLine = (line) => {
     const uppercaseLine = line.toUpperCase();
     const noiseKeywords = [
-        'SORIANA', 'CHEDRAUI', 'LA COMER', 'HEB', 'WALMART', 'TICKET', 'SÚPER', 'SUPER', 
+        'SORIANA', 'CHEDRAUI', 'LA COMER', 'HEB', 'WALMART', 'TICKET', 
         'RFC', 'FACTURA', 'COMPRA', 'FECHA', 'HORA', 'CAJA', 'CAJERO', 'FOLIO', 'SUBTOTAL', 
         'TOTAL', 'PAGO', 'CAMBIO', 'EFECTIVO', 'TARJETA', 'DESCUENTO', 'IVA', 'IEPS', 
         'CLIENTE', 'TEL', 'GRACIAS', 'BIENVENIDO', 'PROMO', 'ARTICULOS', 'ITEMS', 'SUCURSAL',

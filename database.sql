@@ -34,7 +34,9 @@ insert into stores (id, name, logo, color, bg_color, base_url) values
   ('fresko',       'Fresko',        'FR', '#ffffff', '#7ab800', 'https://www.lacomer.com.mx'),
   ('citymarket',   'City Market',   'CM', '#ffffff', '#000000', 'https://www.lacomer.com.mx'),
   ('justo',        'Jüsto',         'JU', '#ffffff', '#007a4c', 'https://justo.mx'),
-  ('heb',          'HEB',           'HEB', '#ffffff', '#e31b23', 'https://www.heb.com.mx')
+  ('heb',          'HEB',           'HEB', '#ffffff', '#e31b23', 'https://www.heb.com.mx'),
+  ('waldos',       'Waldo\'s',      'W',  '#ffe600', '#cc0000', 'https://waldos.com.mx'),
+  ('farmacias_gdl','Farmacias Guadalajara', 'FG', '#ffffff', '#004b93', 'https://www.farmaciasguadalajara.com')
 on conflict (id) do nothing;
 
 -- =============================================

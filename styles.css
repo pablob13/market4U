@@ -1539,7 +1539,6 @@ html {
     font-size: 0.85rem;
     color: #9ca3af;
 }
-
 .footer-heart {
     color: #ef4444;
     display: inline-block;
@@ -1552,3 +1551,10 @@ html {
     100% { transform: scale(1); }
 }
 
+@keyframes m4uFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+.m4u-float {
+    animation: m4uFloat 3s ease-in-out infinite;
+}

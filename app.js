@@ -631,7 +631,7 @@ const renderProfileTab = () => {
 
             return `
             <div class="cart-item">
-                <img src="${item.image || 'https://via.placeholder.com/150'}" alt="">
+                <img src="${item.image || 'https://via.placeholder.com/150'}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2322c55e\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'9\' cy=\'21\' r=\'1\'/><circle cx=\'20\' cy=\'21\' r=\'1\'/><path d=\'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6\'/></svg>'">
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.title}</div>
                     ${extraInfoHTML}
@@ -690,12 +690,17 @@ const renderProducts = (data) => {
                 ${hasPromo ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:4px; z-index:5;">-${discountPct}%</span>` : ''}
                 ${product.image
                     ? `<img src="${product.image}" alt="${product.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                       <div style="display:none; flex-direction:column; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg,#ffe600,#f5c500); color:#2d3277; font-weight:700; font-size:1.1rem; gap:4px;">
-                           <span style="font-size:2rem;">🛒</span><span>ML</span>
+                       <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); color:var(--accent-color); font-weight:700; font-size:1.1rem; gap:8px;">
+                           <div class="m4u-float" style="display:flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:rgba(34,197,94,0.1);">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                           </div>
+                           <span style="font-size:0.85rem; font-weight:600; letter-spacing:-0.3px; color:var(--text-primary);">Market<span style="color:var(--accent-color); font-weight:800;">4U</span></span>
                        </div>`
-                    : `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg,#ffe600,#f5c500); color:#2d3277; font-weight:700; font-size:1.1rem; gap:4px;">
-                           <span style="font-size:2rem;">🛒</span>
-                           <span style="font-size:0.8rem; opacity:0.8;">${product.title.split(' ').slice(0,3).join(' ')}</span>
+                    : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); color:var(--accent-color); font-weight:700; font-size:1.1rem; gap:8px;">
+                           <div class="m4u-float" style="display:flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:rgba(34,197,94,0.1);">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                           </div>
+                           <span style="font-size:0.85rem; font-weight:600; letter-spacing:-0.3px; color:var(--text-primary);">Market<span style="color:var(--accent-color); font-weight:800;">4U</span></span>
                        </div>`
                 }
                 <div class="best-price-badge" style="${product.source === 'mercadolibre' ? 'background:#ffe600; color:#2d3277;' : ''}">
@@ -848,7 +853,7 @@ const updateCartUI = () => {
     
     cartItemsContainer.innerHTML = cart.map((citem, idx) => `
         <div class="cart-item">
-            <img src="${citem.product.image || 'https://via.placeholder.com/150'}" alt="">
+            <img src="${citem.product.image || 'https://via.placeholder.com/150'}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2322c55e\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'9\' cy=\'21\' r=\'1\'/><circle cx=\'20\' cy=\'21\' r=\'1\'/><path d=\'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6\'/></svg>'">
             <div class="cart-item-info">
                 <div class="cart-item-title">${citem.product.title}</div>
                 <div style="font-size: 0.8rem; color: var(--text-secondary)">Mejor precio indiv: ${formatCurrency(citem.product.bestOffer.price)}</div>
@@ -1125,7 +1130,21 @@ window.openProductModal = async (id, tab = 'stores') => {
                         ${competitors.map(comp => `
                             <div class="product-card" style="margin:0; box-shadow:none; border:1px solid var(--border-color);">
                                 <div class="product-image-container" onclick="openProductModal('${comp.id}', 'brands')">
-                                    <img src="${comp.image}" alt="${comp.title}">
+                                    ${comp.image
+                                        ? `<img src="${comp.image}" alt="${comp.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                           <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); color:var(--accent-color); font-weight:700; font-size:1.1rem; gap:8px;">
+                                               <div class="m4u-float" style="display:flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:rgba(34,197,94,0.1);">
+                                                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                                               </div>
+                                               <span style="font-size:0.85rem; font-weight:600; letter-spacing:-0.3px; color:var(--text-primary);">Market<span style="color:var(--accent-color); font-weight:800;">4U</span></span>
+                                           </div>`
+                                        : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); color:var(--accent-color); font-weight:700; font-size:1.1rem; gap:8px;">
+                                               <div class="m4u-float" style="display:flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:rgba(34,197,94,0.1);">
+                                                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                                               </div>
+                                               <span style="font-size:0.85rem; font-weight:600; letter-spacing:-0.3px; color:var(--text-primary);">Market<span style="color:var(--accent-color); font-weight:800;">4U</span></span>
+                                           </div>`
+                                    }
                                 </div>
                                 <div class="product-info" style="padding: 1rem;">
                                     <h3 class="product-title" style="font-size: 0.95rem;">${comp.title}</h3>
@@ -1172,7 +1191,13 @@ window.openProductModal = async (id, tab = 'stores') => {
             <div class="pdp-container">
                 <div class="pdp-image-col" style="position:relative;">
                     ${hasPromoModal ? `<span style="position: absolute; top:0.5rem; left:0.5rem; background:#cc0000; color:white; font-size:0.85rem; font-weight:700; padding:4px 10px; border-radius:4px; z-index:5;">-${discountPctModal}%</span>` : ''}
-                    <img src="${product.image || 'https://via.placeholder.com/150'}" alt="${product.title}">
+                    <img src="${product.image || 'https://via.placeholder.com/150'}" alt="${product.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div style="display:none; width:100%; aspect-ratio:1; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); color:var(--accent-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-md); margin-bottom:2rem; gap:12px;">
+                        <div class="m4u-float" style="display:flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:rgba(34,197,94,0.1);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        </div>
+                        <span style="font-size:1.2rem; font-weight:600; letter-spacing:-0.5px; color:var(--text-primary);">Market<span style="color:var(--accent-color); font-weight:800;">4U</span></span>
+                    </div>
                     <div class="pdp-desc-box">
                         <h3><i data-lucide="info" style="width:18px;"></i> Detalles del Producto</h3>
                         <p>${product.description || 'Descripción del producto no disponible.'}</p>

@@ -1392,7 +1392,9 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
         if (storeKey === 'chedraui' || storeKey === 'heb') {
             const domain = storeKey === 'chedraui' ? 'www.chedraui.com.mx' : 'www.heb.com.mx';
             const params = itemsToExport.map(i => {
-                const sku = i.product.sku_id || i.product.id.split('_')[1];
+                const url = i.offer?.url || '';
+                const skuMatch = url.match(/[?&]sku=([^&#]+)/);
+                const sku = skuMatch ? skuMatch[1] : (i.offer?.sku_id || i.product?.sku_id || i.product?.id?.split('_')[1]);
                 return `sku=${sku}&qty=${i.quantity}&seller=1`;
             }).join('&');
             

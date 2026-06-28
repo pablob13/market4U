@@ -1391,18 +1391,48 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if (autoBtn) {
         if (storeKey === 'chedraui' || storeKey === 'heb') {
             const domain = storeKey === 'chedraui' ? 'www.chedraui.com.mx' : 'www.heb.com.mx';
-            const params = itemsToExport.map(i => {
-                const url = i.offer?.url || '';
-                const skuMatch = url.match(/[?&]sku=([^&#]+)/);
-                const sku = skuMatch ? skuMatch[1] : (i.offer?.sku_id || i.product?.sku_id || i.product?.id?.split('_')[1]);
-                return `sku=${sku}&qty=${i.quantity}&seller=1`;
-            }).join('&');
+            const validItems = [];
             
-            autoBtn.innerText = "Auto-agregar al carrito";
-            autoBtn.href = `https://${domain}/checkout/cart/add?${params}`;
-            autoBtn.onclick = null;
-            autoBtn.style.display = 'flex';
-            autoBtn.style.pointerEvents = "auto";
+            itemsToExport.forEach(i => {
+                const url = i.offer?.url || '';
+                // 1. Intentar buscar ?sku= o &sku= en la URL
+                const skuMatch = url.match(/[?&]sku=([^&#]+)/);
+                let sku = skuMatch ? skuMatch[1] : null;
+                
+                // 2. Si no se encuentra, intentar extraer el id numérico antes de /p (ej: -3624565/p)
+                if (!sku) {
+                    const idMatch = url.match(/-([0-9]+)\/p/);
+                    if (idMatch) sku = idMatch[1];
+                }
+                
+                // 3. Fallbacks del objeto de oferta/producto
+                if (!sku) {
+                    sku = i.offer?.sku_id || i.product?.sku_id;
+                }
+                
+                // 4. Validar que sea un número de SKU válido para VTEX
+                if (sku && /^[0-9]+$/.test(sku)) {
+                    validItems.push({ sku, quantity: i.quantity });
+                } else {
+                    console.warn(`[Redirect] SKU no válido o no encontrado para: ${i.product?.title}`, sku);
+                }
+            });
+            
+            if (validItems.length > 0) {
+                const params = validItems.map(vi => `sku=${vi.sku}&qty=${vi.quantity}&seller=1`).join('&');
+                autoBtn.innerText = "Auto-agregar al carrito";
+                autoBtn.href = `https://${domain}/checkout/cart/add?${params}`;
+                autoBtn.onclick = null;
+                autoBtn.style.display = 'flex';
+                autoBtn.style.pointerEvents = "auto";
+            } else {
+                autoBtn.innerText = "No se encontraron productos válidos para esta tienda";
+                autoBtn.href = "#";
+                autoBtn.onclick = (e) => e.preventDefault();
+                autoBtn.style.display = 'flex';
+                autoBtn.style.pointerEvents = "none";
+                autoBtn.style.backgroundColor = "var(--text-secondary)";
+            }
         } else if (storeKey === 'soriana' || storeKey === 'justo' || storeKey === 'fresko' || storeKey === 'lacomer' || storeKey === 'citymarket') {
             // Trigger Extensión Chrome
             autoBtn.innerText = "Auto-checkout con Extensión 🪄";

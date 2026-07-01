@@ -2549,66 +2549,258 @@ const findBestOcrMatch = async (query) => {
     return maxScore >= 0.25 ? bestProduct : null;
 };
 
-const processOcrFile = async (file) => {
-    if (typeof Tesseract === 'undefined') {
-        showToast('La librería de OCR (Tesseract.js) no se cargó correctamente. Inténtalo de nuevo.', 'error');
-        return;
+// --- Helpers para Importador de Facturas/Tickets (Locales y Gratuitos) ---
+
+// 1. Preprocesar imágenes en canvas para mejorar la precisión y velocidad de Tesseract
+const preprocessImage = (file) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Limitar resolución para optimizar rendimiento de Tesseract
+                const maxW = 1000;
+                let w = img.width;
+                let h = img.height;
+                if (w > maxW) {
+                    h = Math.round((h * maxW) / w);
+                    w = maxW;
+                }
+                canvas.width = w;
+                canvas.height = h;
+                ctx.drawImage(img, 0, 0, w, h);
+                
+                // Convertir a escala de grises e incrementar contraste para resaltar texto
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const data = imgData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i+1];
+                    const b = data[i+2];
+                    
+                    // Conversión por luminancia
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    
+                    // Umbral de contraste dinámico para blanquear fondos y oscurecer letras
+                    const threshold = 120;
+                    const factor = 1.6;
+                    let val = gray;
+                    if (gray < threshold) {
+                        val = Math.max(0, gray - (threshold - gray) * factor);
+                    } else {
+                        val = Math.min(255, gray + (gray - threshold) * factor);
+                    }
+                    
+                    data[i] = val;
+                    data[i+1] = val;
+                    data[i+2] = val;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                
+                canvas.toBlob((blob) => {
+                    resolve(blob || file);
+                }, 'image/jpeg', 0.85);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+};
+
+// 2. Parser de facturas XML en México (CFDI) para obtener productos y cantidades exactas
+const parseXmlInvoice = (xmlText) => {
+    try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+        
+        let concepts = xmlDoc.getElementsByTagName("cfdi:Concepto");
+        if (concepts.length === 0) {
+            concepts = xmlDoc.getElementsByTagName("Concepto");
+        }
+        
+        const items = [];
+        for (let i = 0; i < concepts.length; i++) {
+            const node = concepts[i];
+            const title = node.getAttribute("Descripcion") || "";
+            const quantity = parseFloat(node.getAttribute("Cantidad") || "1");
+            const price = parseFloat(node.getAttribute("ValorUnitario") || "0");
+            if (title) {
+                items.push({ title, quantity, price });
+            }
+        }
+        return items;
+    } catch (err) {
+        console.error('[XML Parse Error]', err);
+        return [];
+    }
+};
+
+// 3. Extractor de texto de archivos PDF (facturas electrónicas en PDF)
+const parsePdfInvoice = async (arrayBuffer) => {
+    if (typeof pdfjsLib === 'undefined') {
+        throw new Error('La librería PDF.js no se cargó correctamente.');
     }
     
+    // Configurar worker de PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    let textLines = [];
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        // Unir textos que estén en la misma línea aproximada para preservar coherencia
+        const items = textContent.items || [];
+        const linesMap = {};
+        
+        for (const item of items) {
+            // item.transform[5] representa la coordenada Y del texto
+            const y = Math.round(item.transform[5]);
+            if (!linesMap[y]) linesMap[y] = [];
+            linesMap[y].push(item);
+        }
+        
+        // Ordenar líneas de arriba hacia abajo (Y descendente)
+        const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+        for (const y of sortedY) {
+            // Ordenar items de izquierda a derecha (transform[4] es X)
+            const sortedItems = linesMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
+            const lineText = sortedItems.map(item => item.str).join(' ').trim();
+            if (lineText.length > 2) {
+                textLines.push(lineText);
+            }
+        }
+    }
+    return textLines;
+};
+
+const processOcrFile = async (file) => {
     ocrDropzone.style.display = 'none';
     ocrProgressContainer.style.display = 'block';
     ocrProgressBar.style.width = '0%';
     ocrProgressPercent.innerText = '0%';
-    ocrProgressStatus.innerText = 'Inicializando motor OCR...';
     
     try {
-        const result = await Tesseract.recognize(
-            file,
-            'spa',
-            {
-                logger: m => {
-                    if (m.status === 'recognizing') {
-                        const pct = Math.round(m.progress * 100);
-                        ocrProgressBar.style.width = `${pct}%`;
-                        ocrProgressPercent.innerText = `${pct}%`;
-                        ocrProgressStatus.innerText = 'Reconociendo texto del ticket...';
+        const isXML = file.name.endsWith('.xml') || file.type === 'text/xml' || file.type === 'application/xml';
+        const isPDF = file.name.endsWith('.pdf') || file.type === 'application/pdf';
+        
+        let lines = [];
+        let xmlItems = [];
+        
+        if (isXML) {
+            ocrProgressStatus.innerText = 'Leyendo archivo XML de factura...';
+            ocrProgressBar.style.width = '50%';
+            ocrProgressPercent.innerText = '50%';
+            
+            const xmlText = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (err) => reject(err);
+                reader.readAsText(file);
+            });
+            
+            xmlItems = parseXmlInvoice(xmlText);
+            ocrProgressBar.style.width = '100%';
+            ocrProgressPercent.innerText = '100%';
+        } else if (isPDF) {
+            ocrProgressStatus.innerText = 'Extrayendo texto del PDF...';
+            ocrProgressBar.style.width = '30%';
+            ocrProgressPercent.innerText = '30%';
+            
+            const arrayBuffer = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (err) => reject(err);
+                reader.readAsArrayBuffer(file);
+            });
+            
+            lines = await parsePdfInvoice(arrayBuffer);
+            ocrProgressBar.style.width = '100%';
+            ocrProgressPercent.innerText = '100%';
+        } else {
+            // Es una imagen -> aplicar preprocesamiento y ejecutar Tesseract OCR local
+            ocrProgressStatus.innerText = 'Optimizando imagen...';
+            ocrProgressBar.style.width = '10%';
+            ocrProgressPercent.innerText = '10%';
+            
+            const processedBlob = await preprocessImage(file);
+            
+            if (typeof Tesseract === 'undefined') {
+                throw new Error('La librería de OCR (Tesseract.js) no se cargó correctamente.');
+            }
+            
+            ocrProgressStatus.innerText = 'Inicializando motor OCR...';
+            const result = await Tesseract.recognize(
+                processedBlob,
+                'spa',
+                {
+                    logger: m => {
+                        if (m.status === 'recognizing') {
+                            const pct = Math.round(m.progress * 85) + 15; // escala de 15% a 100%
+                            ocrProgressBar.style.width = `${pct}%`;
+                            ocrProgressPercent.innerText = `${pct}%`;
+                            ocrProgressStatus.innerText = 'Reconociendo texto del ticket...';
+                        }
                     }
                 }
-            }
-        );
-        
-        const text = result.data.text || '';
-        const lines = text.split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
+            );
             
+            const text = result.data.text || '';
+            lines = text.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+        }
+        
         detectedOcrItems = [];
         const matchPromises = [];
         
-        // Filtrar y deduplicar líneas válidas para optimizar la carga a la base de datos
-        const uniqueCleanedLines = Array.from(new Set(
-            lines.map(line => cleanReceiptLine(line))
-                 .filter(cleaned => cleaned && !isNoiseLine(cleaned))
-        )).slice(0, 25); // Limitar a un máximo de 25 líneas significativas para no saturar la red/DB
-        
-        for (const cleaned of uniqueCleanedLines) {
-            matchPromises.push((async () => {
-                const matchedProduct = await findBestOcrMatch(cleaned);
-                return {
-                    originalLine: cleaned,
-                    match: matchedProduct
-                };
-            })());
+        if (isXML) {
+            // Para facturas XML (CFDI)
+            const uniqueXmlItems = xmlItems.slice(0, 25);
+            for (const item of uniqueXmlItems) {
+                matchPromises.push((async () => {
+                    const cleaned = cleanReceiptLine(item.title);
+                    const matchedProduct = await findBestOcrMatch(cleaned);
+                    return {
+                        originalLine: `${item.title} (Cant: ${item.quantity})`,
+                        match: matchedProduct,
+                        quantity: item.quantity,
+                        price: item.price
+                    };
+                })());
+            }
+        } else {
+            // Para imágenes y archivos PDF
+            const uniqueCleanedLines = Array.from(new Set(
+                lines.map(line => cleanReceiptLine(line))
+                     .filter(cleaned => cleaned && !isNoiseLine(cleaned))
+            )).slice(0, 25);
+            
+            for (const cleaned of uniqueCleanedLines) {
+                matchPromises.push((async () => {
+                    const matchedProduct = await findBestOcrMatch(cleaned);
+                    return {
+                        originalLine: cleaned,
+                        match: matchedProduct,
+                        quantity: 1
+                    };
+                })());
+            }
         }
         
-        // Esperar que todas las consultas de base de datos se ejecuten concurrentemente
         detectedOcrItems = await Promise.all(matchPromises);
         
         ocrProgressContainer.style.display = 'none';
         ocrResultsContainer.style.display = 'block';
         
         if (detectedOcrItems.length === 0) {
-            ocrDetectedItems.innerHTML = `<p style="text-align:center; color:var(--text-tertiary); padding:1.5rem; font-size:0.9rem;">No pudimos detectar productos legibles en esta foto. Intenta con una toma más clara o acércala más.</p>`;
+            ocrDetectedItems.innerHTML = `<p style="text-align:center; color:var(--text-tertiary); padding:1.5rem; font-size:0.9rem;">No pudimos detectar productos legibles en el archivo. Intenta con una toma más clara o un formato válido.</p>`;
             if (ocrImportBtn) {
                 ocrImportBtn.disabled = true;
                 ocrImportBtn.style.opacity = 0.5;
@@ -2641,8 +2833,8 @@ const processOcrFile = async (file) => {
         }
         safeCreateIcons();
     } catch (err) {
-        console.error('[OCR Error]', err);
-        showToast(`Error al procesar OCR: ${err.message}`, 'error');
+        console.error('[Ticket/Invoice Processing Error]', err);
+        showToast(`Error al procesar: ${err.message}`, 'error');
         ocrProgressContainer.style.display = 'none';
         ocrDropzone.style.display = 'block';
     }
@@ -2690,7 +2882,7 @@ if (ocrImportBtn) {
                 const idx = parseInt(cb.getAttribute('data-index'));
                 const item = detectedOcrItems[idx];
                 if (item && item.match) {
-                    addToCart(item.match, 1);
+                    addToCart(item.match.id, item.quantity || 1);
                     importedCount++;
                 } else {
                     unmatchedCount++;

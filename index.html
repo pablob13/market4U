@@ -21,6 +21,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Tesseract.js OCR library -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- PDF.js library for invoice PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body>
     <!-- Toast Container -->
@@ -462,18 +464,18 @@
         <div class="modal-content" style="max-width: 600px; padding: 2rem;">
             <button class="modal-close" id="closeOcrModal"><i data-lucide="x"></i></button>
             <h2 style="margin-bottom: 0.5rem; display:flex; align-items:center; gap:0.5rem;"><i data-lucide="receipt" style="color:var(--accent-color);"></i> Escáner de Tickets (OCR)</h2>
-            <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom: 1.5rem;">Sube una foto de tu ticket de compra para extraer automáticamente los productos y agregarlos a tu carrito.</p>
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom: 1.5rem;">Sube una foto de tu ticket, un PDF de tu factura, o un archivo XML (CFDI) para agregar automáticamente los productos.</p>
             
             <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--text-secondary);">
                 <i data-lucide="info" style="color: var(--accent-color); width: 18px; height: 18px; flex-shrink: 0;"></i>
-                <span><strong>Aviso de datos:</strong> La primera ejecución descarga archivos de reconocimiento de idioma (~15MB). Te sugerimos utilizar una red Wi-Fi.</span>
+                <span><strong>Aviso de datos:</strong> La primera ejecución de OCR descarga archivos de reconocimiento de idioma (~15MB). Te sugerimos utilizar una red Wi-Fi.</span>
             </div>
 
             <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 2.5rem 1.5rem; text-align: center; background: var(--bg-tertiary); margin-bottom: 1.5rem; cursor: pointer; transition: border-color 0.2s;" id="ocrDropzone" onclick="document.getElementById('ocrInputFile').click()">
                 <i data-lucide="upload-cloud" style="width: 48px; height: 48px; color: var(--text-tertiary); margin: 0 auto 1rem;"></i>
-                <div style="font-weight: 600; margin-bottom: 0.5rem;">Haz clic para subir o arrastra una foto</div>
-                <div style="font-size: 0.75rem; color: var(--text-tertiary);">Soporta PNG, JPG, JPEG</div>
-                <input type="file" id="ocrInputFile" accept="image/*" style="display: none;">
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">Sube o arrastra una imagen, factura PDF o XML</div>
+                <div style="font-size: 0.75rem; color: var(--text-tertiary);">Soporta JPG, PNG, PDF, XML</div>
+                <input type="file" id="ocrInputFile" accept="image/*,application/pdf,text/xml,.xml" style="display: none;">
             </div>
 
             <!-- OCR Progress -->

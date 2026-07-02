@@ -944,22 +944,41 @@ const updateCartUI = () => {
     
     cartTotalsContainer.innerHTML = sortedTotals.map((t, idx) => {
         const isWinner = idx === 0 && t.missing === 0;
-        const missingText = t.missing > 0 ? `<span style="color: var(--danger, red); font-size: 0.75rem;">(Falta ${t.missing} art.)</span>` : `<span style="color: var(--success); font-size: 0.75rem;">(Ticket Completo)</span>`;
+        
+        let statusBadgeHTML = '';
+        if (t.missing === 0) {
+            statusBadgeHTML = `<span style="background: rgba(34, 197, 94, 0.1); color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; display: inline-block;">Ticket Completo</span>`;
+        } else {
+            statusBadgeHTML = `<span style="background: rgba(239, 68, 68, 0.08); color: #b91c1c; font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 99px; display: inline-block;">Faltan ${t.missing} art.</span>`;
+        }
+
+        const winnerBadge = isWinner 
+            ? `<div style="position: absolute; top: -10px; left: 16px; background: #eab308; color: #1e3a8a; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; display: flex; align-items: center; gap: 2px; box-shadow: var(--shadow-sm); z-index: 5;">
+                <i data-lucide="sparkles" style="width: 10px; height: 10px; fill: #1e3a8a;"></i> Mejor Opción
+               </div>`
+            : '';
+
         return `
             <div class="total-row ${isWinner ? 'winner' : ''}">
-                <div style="display:flex; align-items:center; gap: 0.4rem; font-weight: 500; font-size: 0.85rem;">
-                    <div class="store-logo-small" style="background-color: ${t.store.bgColor}; color: ${t.store.color}; margin:0; width:20px; height:20px; font-size:rem;">
-                        ${t.store.logo}
+                ${winnerBadge}
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <div class="store-logo-small" style="background-color: ${t.store.bgColor}; color: ${t.store.color}; margin: 0; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+                            ${t.store.logo}
+                        </div>
+                        <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">${t.store.name}</span>
                     </div>
-                    ${t.store.name}
-                </div>
-                <div style="display:flex; flex-direction:column; align-items:flex-end; gap: 0.2rem;">
-                    <div style="text-align: right; line-height:1.2;">
-                        <strong style="font-size:0.95rem; ${isWinner? 'color:var(--success)' : ''}">${formatCurrency(t.total)}</strong><br>
-                        ${missingText}
+                    
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.15rem; font-weight: 800; color: ${isWinner ? '#16a34a' : 'var(--text-primary)'};">${formatCurrency(t.total)}</div>
+                        <div style="margin-top: 0.2rem;">${statusBadgeHTML}</div>
                     </div>
-                    <button onclick="startRedirect('${t.storeKey}', true)" class="btn-goto" style="font-size: 0.7rem; padding: 0.25rem 0.5rem; width: 100%; border: none; cursor: pointer; border-radius: var(--radius-sm);">Comprar Aquí</button>
                 </div>
+                
+                <button onclick="startRedirect('${t.storeKey}', true)" class="btn-goto ${isWinner ? 'winner' : 'outline'}">
+                    <i data-lucide="external-link" style="width: 12px; height: 12px;"></i>
+                    <span>Comprar en ${t.store.name}</span>
+                </button>
             </div>
         `;
     }).join('');

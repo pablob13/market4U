@@ -10,6 +10,7 @@ const CONFIG = {
     // --- SUPABASE ---
     SUPABASE_URL:      'https://yiolvrhxjkozebcorqep.supabase.co',
     SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlpb2x2cmh4amtvemViY29ycWVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTcwOTksImV4cCI6MjA5MTc3MzA5OX0.bYMXCyH4lsmHhS2Y4zNNhy5EV_otw8X4qtsu9Wxee_Q',
+    API_BASE_URL:      'https://market4-u.vercel.app',
 
     // --- MERCADO LIBRE ---
     // La búsqueda usa scraping vía Edge Function de Supabase (sin API bloqueada)
@@ -24,6 +25,14 @@ const CONFIG = {
     APP_NAME:      'Market4U',
     APP_VERSION:   '2.0.0',
     IS_PRODUCTION: false,  // Cambia a true cuando despliegues en Vercel
+    getApiUrl: (path) => {
+        const isLocalOrNative = window.location.hostname === 'localhost' || 
+                                window.location.hostname === '127.0.0.1' || 
+                                window.location.protocol.startsWith('capacitor');
+        
+        const base = isLocalOrNative ? 'https://market4-u.vercel.app' : '';
+        return `${base}${path}`;
+    }
 };
 
 if (typeof module !== 'undefined' && module.exports) {

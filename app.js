@@ -861,9 +861,31 @@ window.deleteList = (idx) => {
 
 const updateCartUI = () => {
     cartCount.innerText = cart.reduce((acc, current) => acc + current.quantity, 0);
+    const cartTotalsWrapper = document.querySelector('.cart-totals');
     if(cart.length === 0) {
-        cartItemsContainer.innerHTML = '<p style="color:var(--text-tertiary); text-align:center; padding-top: 2rem;">Tu carrito está vacío.</p>';
+        if (cartTotalsWrapper) cartTotalsWrapper.style.display = 'none';
+        cartItemsContainer.innerHTML = `
+            <div class="empty-cart-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 3rem 1.5rem; height: 100%; min-height: 380px; font-family: inherit;">
+                <div class="empty-cart-icon-container" style="position: relative; margin-bottom: 1.5rem; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;">
+                    <div style="position: absolute; width: 90px; height: 90px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%); border-radius: 50%; filter: blur(4px);"></div>
+                    <div class="m4u-float" style="z-index: 1; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); border: 2.5px solid var(--border-color); border-radius: 20px; width: 64px; height: 64px; box-shadow: var(--shadow-md);">
+                        <i data-lucide="shopping-bag" style="width: 28px; height: 28px; color: var(--accent-color);"></i>
+                    </div>
+                    <i data-lucide="sparkles" style="position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; color: #eab308; opacity: 0.85;"></i>
+                    <i data-lucide="heart" style="position: absolute; bottom: 15px; left: 12px; width: 15px; height: 15px; color: var(--danger); opacity: 0.65;"></i>
+                </div>
+                
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; letter-spacing: -0.3px;">Tu canasta está vacía</h3>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 260px; line-height: 1.5; margin-bottom: 1.75rem;">Agrega productos desde el buscador o escanea un ticket para comparar precios al instante.</p>
+                
+                <button onclick="document.getElementById('closeCartModal').click(); document.getElementById('searchInput').focus();" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.25rem; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2); transition: all 0.2s;">
+                    <i data-lucide="plus-circle" style="width: 15px; height: 15px;"></i>
+                    <span>Buscar Productos</span>
+                </button>
+            </div>
+        `;
         cartTotalsContainer.innerHTML = '';
+        safeCreateIcons();
         return;
     }
     
@@ -885,6 +907,8 @@ const updateCartUI = () => {
             </button>
         </div>
     `).join('');
+    
+    if (cartTotalsWrapper) cartTotalsWrapper.style.display = 'block';
     
     const storeTotals = {};
     Object.keys(stores).forEach(key => storeTotals[key] = { cost: 0, missing: 0 });
@@ -1634,7 +1658,7 @@ openScannerBtn.addEventListener('click', async () => {
                     
                     // 3. Si no está en la base de datos, intentar buscar por código en la API (gatilla scrapers en tiempo real)
                     if (!matched) {
-                        const searchUrl = `/api/search?q=${encodeURIComponent(decodedText)}`;
+                        const searchUrl = CONFIG.getApiUrl(`/api/search?q=${encodeURIComponent(decodedText)}`);
                         const res = await fetch(searchUrl);
                         if (res.ok) {
                             const searchData = await res.json();

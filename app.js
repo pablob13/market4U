@@ -631,7 +631,7 @@ const renderProfileTab = () => {
 
             return `
             <div class="cart-item">
-                <img src="${item.image || 'https://via.placeholder.com/150'}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2322c55e\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'9\' cy=\'21\' r=\'1\'/><circle cx=\'20\' cy=\'21\' r=\'1\'/><path d=\'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6\'/></svg>'">
+                <img src="${item.image || 'https://via.placeholder.com/150'}" alt="" onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyUyMzIyYzU1ZScgc3Ryb2tlLXdpZHRoPScyJyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzknIGN5PScyMScgcj0nMScvPjxjaXJjbGUgY3g9JzIwJyBjeT0nMjEnIHI9JzEnLz48cGF0aCBkPSdNMSAxaDRsMi42OCAxMy4zOWEyIDIgMCAwIDAgMiAxLjYxaDkuNzJhMiAyIDAgMCAwIDItMS42MUwyMyA2SDYnLz48L3N2Zz4=';">
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.title}</div>
                     ${extraInfoHTML}
@@ -891,7 +891,7 @@ const updateCartUI = () => {
     
     cartItemsContainer.innerHTML = cart.map((citem, idx) => `
         <div class="cart-item">
-            <img src="${citem.product.image || 'https://via.placeholder.com/150'}" alt="" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2322c55e\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'9\' cy=\'21\' r=\'1\'/><circle cx=\'20\' cy=\'21\' r=\'1\'/><path d=\'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6\'/></svg>'">
+            <img src="${citem.product.image || 'https://via.placeholder.com/150'}" alt="" onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyUyMzIyYzU1ZScgc3Ryb2tlLXdpZHRoPScyJyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzknIGN5PScyMScgcj0nMScvPjxjaXJjbGUgY3g9JzIwJyBjeT0nMjEnIHI9JzEnLz48cGF0aCBkPSdNMSAxaDRsMi42OCAxMy4zOWEyIDIgMCAwIDAgMiAxLjYxaDkuNzJhMiAyIDAgMCAwIDItMS42MUwyMyA2SDYnLz48L3N2Zz4=';">
             <div class="cart-item-info">
                 <div class="cart-item-title">${citem.product.title}</div>
                 <div style="font-size: 0.8rem; color: var(--text-secondary)">Mejor precio indiv: ${formatCurrency(citem.product.bestOffer.price)}</div>

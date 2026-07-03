@@ -86,6 +86,7 @@ const ProductAdapter = {
             seller: primaryOffer.store,
             free_shipping: false,
             brand: dbProduct.brand || '',
+            category: dbProduct.category || 'General',
             category_id: dbProduct.category || '',
             description: dbProduct.description || '',
             offers: offersArray,

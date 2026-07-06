@@ -1991,46 +1991,40 @@ html {
     stroke-width: 2.5;
 }
 
-/* Scroll Horizontal para las Pestañas (Solución para corte en pantallas/modales angostos) */
+/* Contenedor de las Pestañas del Perfil (Adaptable para evitar cortes en cualquier pantalla) */
 .profile-tabs-scroll {
     width: 100%;
     background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
-    overflow-x: auto;
-    scrollbar-width: none; /* Ocultar scrollbar estándar en Firefox */
-    -webkit-overflow-scrolling: touch; /* Desplazamiento inercial suave en iOS */
-}
-
-.profile-tabs-scroll::-webkit-scrollbar {
-    display: none; /* Ocultar scrollbar en Safari y Chrome */
 }
 
 .profile-tabs-scroll .profile-tabs {
     display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 0.4rem !important;
-    padding: 0.75rem 1rem !important;
+    flex-wrap: wrap !important; /* Permitir envoltura (wrap) para evitar cortes en cualquier dispositivo */
+    gap: 0.35rem !important;
+    padding: 0.65rem 0.85rem !important;
     background-color: transparent !important;
     border-bottom: none !important;
-    width: max-content !important; /* Fuerza a que ocupe todo el ancho de sus hijos sin cortar */
+    width: 100% !important; /* Ocupa el 100% para que el flex layout funcione correctamente */
+    justify-content: center !important; /* Centra las píldoras en la pantalla */
 }
 
-/* Botones de Pestañas tipo Píldoras Premium */
+/* Botones de Pestañas tipo Píldoras Premium (Más compactos) */
 .profile-tabs .tab-btn {
-    flex: 0 0 auto !important;
+    flex: 0 1 auto !important; /* Permite redimensionar y ajustarse dinámicamente */
     display: inline-flex !important;
     align-items: center !important;
-    gap: 0.45rem !important;
-    padding: 0.55rem 1rem !important;
+    gap: 0.35rem !important;
+    padding: 0.45rem 0.75rem !important;
     background-color: var(--bg-primary) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 20px !important;
     color: var(--text-secondary) !important;
-    font-size: 0.85rem !important;
+    font-size: 0.78rem !important; /* Un poco más compacto para asegurar espacio en una fila en desktop */
     font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    border-bottom: 1px solid var(--border-color) !important; /* Sobrescribir border-bottom-color por defecto */
+    border-bottom: 1px solid var(--border-color) !important;
 }
 
 .profile-tabs .tab-btn:hover {

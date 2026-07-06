@@ -4,7 +4,7 @@
   "description": "Comparador de precios de supermercados en México",
   "private": true,
   "scripts": {
-    "build": "rm -rf www && mkdir -p www && cp index.html app.js services.js config.js mockData.js styles.css sw.js manifest.json privacidad.html terminos.html www/ && cp -r icons www/"
+    "build": "rm -rf www && mkdir -p www && cp index.html app.js services.js config.js mockData.js styles.css sw.js manifest.json privacidad.html terminos.html extension/content.js www/ && cp -r icons www/"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
@@ -12,7 +12,8 @@
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.4.0",
     "@capacitor/ios": "^8.4.0",
-    "@supabase/supabase-js": "^2.39.8"
+    "@supabase/supabase-js": "^2.39.8",
+    "cordova-plugin-inappbrowser": "^7.0.0"
   },
   "engines": {
     "node": ">=18"

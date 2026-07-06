@@ -1380,6 +1380,81 @@ window.openProductModal = async (id, tab = 'stores', selectedStore = null) => {
     }
 };
 
+/* --- MOBILE AUTO CHECKOUT ROBOT --- */
+const runMobileAutoCheckout = async (storeKey, itemsToExport) => {
+    const items = itemsToExport.map(i => ({
+        product: {
+            id: i.product.ml_id || i.product.id,
+            sku_id: i.offer?.sku_id || i.product?.sku_id || null,
+            title: i.product.title
+        },
+        quantity: i.quantity,
+        offer: {
+            price: i.offer.price,
+            url: i.offer.url || i.product.permalink || ''
+        }
+    }));
+    
+    let url = '';
+    if (storeKey === 'justo') url = 'https://justo.mx/cart/';
+    if (storeKey === 'fresko') url = 'https://www.fresko.com.mx/fresko/';
+    if (storeKey === 'soriana') url = 'https://www.soriana.com/carrito/';
+    if (storeKey === 'lacomer') url = 'https://www.lacomer.com.mx/lacomer/';
+    if (storeKey === 'citymarket') url = 'https://www.citymarket.com.mx/citymarket/';
+    
+    if (!url) {
+        showToast('Tienda no soportada en móvil', 'error');
+        return;
+    }
+    
+    showToast('Iniciando robot de compra en la app... 🪄', 'info', 4000);
+    
+    const iab = window.cordova && window.cordova.InAppBrowser;
+    if (!iab) {
+        console.warn('[Market4U] Cordova InAppBrowser no disponible. Abriendo en navegador externo.');
+        window.open(url, '_blank');
+        return;
+    }
+    
+    try {
+        const scriptRes = await fetch('content.js');
+        if (!scriptRes.ok) throw new Error('No se pudo cargar el script del robot.');
+        const scriptText = await scriptRes.text();
+        
+        const browserRef = iab.open(url, '_blank', 'location=yes,hidden=no,clearcache=yes,clearsessioncache=yes');
+        
+        browserRef.addEventListener('loadstop', () => {
+            console.log('[Market4U Robot] Inyectando datos y lógica...');
+            
+            const mockCode = `
+                window.pendingCart = ${JSON.stringify({ store: storeKey, items })};
+                window.chrome = {
+                    storage: {
+                        local: {
+                            get: function(keys, callback) {
+                                callback({ pendingCart: window.pendingCart });
+                            },
+                            remove: function(keys, callback) {
+                                if (callback) callback();
+                            }
+                        }
+                    }
+                };
+                console.log("[Robot Mobile] Chrome mock y carrito inyectados.");
+            `;
+            
+            browserRef.executeScript({ code: mockCode }, () => {
+                browserRef.executeScript({ code: scriptText }, () => {
+                    console.log('[Market4U Robot] Robot inyectado y ejecutándose.');
+                });
+            });
+        });
+    } catch (err) {
+        console.error('[Market4U Robot Error]', err);
+        showToast('Error al iniciar el robot de compra.', 'error');
+    }
+};
+
 /* --- REDIRECT LOGIC --- */
 window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if(cartModal.classList.contains('active')) cartModal.classList.remove('active');
@@ -1496,44 +1571,54 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
                 autoBtn.style.color = "white";
             }
         } else if (storeKey === 'soriana' || storeKey === 'justo' || storeKey === 'fresko' || storeKey === 'lacomer' || storeKey === 'citymarket') {
-            // Trigger Extensión Chrome
-            autoBtn.innerText = "Auto-checkout con Extensión 🪄";
-            autoBtn.href = "#";
-            autoBtn.style.display = 'flex';
-            autoBtn.style.pointerEvents = "auto";
-            autoBtn.onclick = (e) => {
-                e.preventDefault();
-                autoBtn.innerText = "Transfiriendo...";
-                autoBtn.style.pointerEvents = "none";
-                autoBtn.classList.remove('extension-success');
-                
-                // Agregamos un listener temporal para el ACK
-                const ackListener = (event) => {
-                    if (event.data && event.data.type === "MARKET4U_EXTENSION_ACK") {
-                        autoBtn.innerText = "Abriendo carrito...";
-                        autoBtn.style.backgroundColor = "#007a4c";
-                        autoBtn.style.color = "white";
-                        autoBtn.classList.add('extension-success');
-                        window.removeEventListener("message", ackListener);
-                    }
+            const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+            
+            if (isNative) {
+                autoBtn.innerText = "Auto-checkout en la App 🪄";
+                autoBtn.href = "#";
+                autoBtn.style.display = 'flex';
+                autoBtn.style.pointerEvents = "auto";
+                autoBtn.onclick = (e) => {
+                    e.preventDefault();
+                    runMobileAutoCheckout(storeKey, itemsToExport);
                 };
-                window.addEventListener("message", ackListener);
+            } else {
+                autoBtn.innerText = "Auto-checkout con Extensión 🪄";
+                autoBtn.href = "#";
+                autoBtn.style.display = 'flex';
+                autoBtn.style.pointerEvents = "auto";
+                autoBtn.onclick = (e) => {
+                    e.preventDefault();
+                    autoBtn.innerText = "Transfiriendo...";
+                    autoBtn.style.pointerEvents = "none";
+                    autoBtn.classList.remove('extension-success');
+                    
+                    const ackListener = (event) => {
+                        if (event.data && event.data.type === "MARKET4U_EXTENSION_ACK") {
+                            autoBtn.innerText = "Abriendo carrito...";
+                            autoBtn.style.backgroundColor = "#007a4c";
+                            autoBtn.style.color = "white";
+                            autoBtn.classList.add('extension-success');
+                            window.removeEventListener("message", ackListener);
+                        }
+                    };
+                    window.addEventListener("message", ackListener);
 
-                window.postMessage({
-                    type: "MARKET4U_AUTO_CHECKOUT",
-                    payload: { store: storeKey, items: itemsToExport }
-                }, "*");
-                
-                // Fallback por si no tienen la extensión instalada
-                setTimeout(() => {
-                    if(!autoBtn.classList.contains('extension-success')) {
-                        autoBtn.innerText = "Requiere la extensión instalada";
-                        autoBtn.style.backgroundColor = "var(--text-secondary)";
-                        autoBtn.style.color = "white";
-                        window.removeEventListener("message", ackListener);
-                    }
-                }, 2000);
-            };
+                    window.postMessage({
+                        type: "MARKET4U_AUTO_CHECKOUT",
+                        payload: { store: storeKey, items: itemsToExport }
+                    }, "*");
+                    
+                    setTimeout(() => {
+                        if(!autoBtn.classList.contains('extension-success')) {
+                            autoBtn.innerText = "Requiere la extensión instalada";
+                            autoBtn.style.backgroundColor = "var(--text-secondary)";
+                            autoBtn.style.color = "white";
+                            window.removeEventListener("message", ackListener);
+                        }
+                    }, 2000);
+                };
+            }
         } else {
             autoBtn.style.display = 'none';
         }

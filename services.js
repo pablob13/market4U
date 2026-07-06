@@ -18,6 +18,56 @@ const initSupabase = () => {
     }
     _sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
     console.log('[Market4U] Supabase conectado ✓');
+
+    // Registrar oyente de deep links (Redirección de login Google/OAuth en App Móvil)
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        const { App, Browser } = window.Capacitor.Plugins;
+        if (App) {
+            App.addListener('appUrlOpen', async (data) => {
+                console.log('[Market4U] Deep link detectado:', data.url);
+                try {
+                    const parsedUrl = new URL(data.url);
+                    // Supabase envía el token en la sección hash (#access_token=...&refresh_token=...)
+                    const hash = parsedUrl.hash || '';
+                    if (hash.startsWith('#') || hash.startsWith('?')) {
+                        const cleanHash = hash.substring(1);
+                        const params = new URLSearchParams(cleanHash);
+                        const accessToken = params.get('access_token');
+                        const refreshToken = params.get('refresh_token');
+                        
+                        if (accessToken && refreshToken) {
+                            console.log('[Market4U] Encontrado token de sesión. Autenticando en Supabase...');
+                            const { error } = await _sb.auth.setSession({
+                                access_token: accessToken,
+                                refresh_token: refreshToken
+                            });
+                            
+                            if (error) {
+                                console.error('[Market4U] Error al establecer sesión oauth:', error.message);
+                            } else {
+                                console.log('[Market4U] Sesión oauth establecida correctamente.');
+                                if (window.showToast) {
+                                    window.showToast('¡Sesión iniciada con Google!', 'success');
+                                }
+                            }
+                            
+                            // Cerrar la ventana del navegador Safari / Chrome abierta
+                            if (Browser && typeof Browser.close === 'function') {
+                                try {
+                                    await Browser.close();
+                                } catch (e) {
+                                    console.warn('[Market4U] No se pudo cerrar Browser:', e);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('[Market4U] Error parseando deep link:', err);
+                }
+            });
+        }
+    }
+
     return _sb;
 };
 
@@ -161,11 +211,31 @@ const AuthService = {
 
     signInWithGoogle: async () => {
         if (!_sb) return { error: 'Supabase no configurado' };
-        const { data, error } = await _sb.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: window.location.origin }
-        });
-        return { data, error };
+        
+        const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+        
+        if (isNative) {
+            console.log('[Market4U] Iniciando sesión nativa con Google...');
+            const { data, error } = await _sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: 'market4u://login',
+                    skipBrowserRedirect: true
+                }
+            });
+            if (error) return { error };
+            
+            if (data && data.url) {
+                await window.Capacitor.Plugins.Browser.open({ url: data.url });
+            }
+            return { data };
+        } else {
+            const { data, error } = await _sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin }
+            });
+            return { data, error };
+        }
     },
 
     saveAlert: async (product, targetPrice, promo) => {

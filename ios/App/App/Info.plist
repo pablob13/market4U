@@ -53,5 +53,16 @@
 	<string>Market4U requiere acceso a tu galería para poder seleccionar fotos de tickets de compra y procesarlos con OCR.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.market4u.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>market4u</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

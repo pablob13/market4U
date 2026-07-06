@@ -1,5 +1,9 @@
 {
   "appId": "com.market4u.app",
   "appName": "Market4U",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "iosScheme": "market4u",
+    "androidScheme": "market4u"
+  }
 }

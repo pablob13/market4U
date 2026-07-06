@@ -1825,3 +1825,277 @@ html {
 .tag-search-btn:active {
     transform: translateY(0);
 }
+
+/* ==========================================================================
+   DISEÑO PREMIUM PARA EL PERFIL LATERAL Y NOTIFICACIONES TOAST (Market4U)
+   ========================================================================== */
+
+/* Contenedor de notificaciones para evitar cortes en cualquier pantalla */
+#toastContainer {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top, 0px) + 2rem) !important;
+    right: 2rem !important;
+    z-index: 10000 !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    pointer-events: none;
+    max-width: 90vw;
+}
+
+/* Toast Notificaciones con Estética Premium */
+.toast-new {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--text-primary);
+    padding: 1rem 1.4rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.02);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-left: 5px solid var(--toast-color, #10b981);
+    font-size: 0.9rem;
+    font-weight: 600;
+    min-width: 300px;
+    max-width: 400px;
+    pointer-events: all;
+    cursor: pointer;
+    animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: inherit;
+}
+.toast-new:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 14px 35px rgba(0,0,0,0.12);
+}
+
+/* Redefinir la animación para que se adapte mejor en pantallas chicas */
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(50px) scale(0.95); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* Estilo para el Modal Perfil Lateral */
+.profile-side-modal {
+    background-color: var(--bg-primary);
+    box-shadow: -6px 0 30px rgba(0,0,0,0.12);
+}
+
+/* Header del Perfil con Gradiente Colorido y Moderno */
+.profile-header-new {
+    background: linear-gradient(135deg, #10b981, #059669); /* Esmeralda a verde bosque */
+    text-align: center;
+    padding: 3rem 2rem 2.25rem;
+    position: relative;
+    color: white;
+}
+
+/* Avatar del Perfil Glassmorphic */
+.profile-avatar-container {
+    width: 84px;
+    height: 84px;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 50%;
+    margin: 0 auto 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.profile-avatar-container:hover {
+    transform: scale(1.06);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 0 0 4px rgba(255, 255, 255, 0.2);
+}
+
+.profile-avatar-container svg {
+    color: white !important;
+    width: 36px;
+    height: 36px;
+}
+
+/* Nombre de Perfil en Header */
+.profile-header-new #profileNameDisplay {
+    color: white !important;
+    font-size: 1.45rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Botón de Cerrar Sesión Glassmorphic */
+.profile-header-new #logoutBtn {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    padding: 0.45rem 1.15rem !important;
+    border-radius: 20px !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    margin-top: 0.85rem !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
+
+.profile-header-new #logoutBtn:hover {
+    background: rgba(255, 255, 255, 0.28) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.profile-header-new #logoutBtn:active {
+    transform: translateY(0) !important;
+}
+
+/* Botón de Cerrar Modal (Equis) Glassmorphic */
+.profile-close-btn {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+}
+
+.profile-close-btn:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: rotate(90deg) scale(1.05);
+}
+
+.profile-close-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.5;
+}
+
+/* Scroll Horizontal para las Pestañas (Solución para corte en pantallas/modales angostos) */
+.profile-tabs-scroll {
+    width: 100%;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+    scrollbar-width: none; /* Ocultar scrollbar estándar en Firefox */
+    -webkit-overflow-scrolling: touch; /* Desplazamiento inercial suave en iOS */
+}
+
+.profile-tabs-scroll::-webkit-scrollbar {
+    display: none; /* Ocultar scrollbar en Safari y Chrome */
+}
+
+.profile-tabs-scroll .profile-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 0.4rem !important;
+    padding: 0.75rem 1rem !important;
+    background-color: transparent !important;
+    border-bottom: none !important;
+    width: max-content !important; /* Fuerza a que ocupe todo el ancho de sus hijos sin cortar */
+}
+
+/* Botones de Pestañas tipo Píldoras Premium */
+.profile-tabs .tab-btn {
+    flex: 0 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    padding: 0.55rem 1rem !important;
+    background-color: var(--bg-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 20px !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-bottom: 1px solid var(--border-color) !important; /* Sobrescribir border-bottom-color por defecto */
+}
+
+.profile-tabs .tab-btn:hover {
+    color: var(--text-primary) !important;
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--text-tertiary) !important;
+}
+
+.profile-tabs .tab-btn.active {
+    color: white !important;
+    background: linear-gradient(135deg, #10b981, #059669) !important; /* Gradiente del tema */
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important;
+}
+
+.profile-tabs .tab-btn.active svg {
+    color: white !important;
+}
+
+/* Área de Contenido del Perfil */
+.profile-content-area-new {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem 1rem;
+    background-color: var(--bg-primary);
+}
+
+/* Sobrescribir estilos de las tarjetas dentro de la nueva sección */
+.profile-content-area-new .my-list-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color) !important;
+    border-left: 4px solid var(--border-color) !important;
+    padding: 1.25rem !important;
+    border-radius: var(--radius-md) !important;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    margin: 0.5rem 0 1rem 0 !important;
+}
+
+.profile-content-area-new .my-list-card:hover {
+    border-color: var(--border-color) !important;
+    border-left-color: #10b981 !important; /* Acento verde colorido en hover */
+    background: var(--bg-secondary) !important;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Soporte para Mobile (Safe Area y Ancho Completo) */
+@media (max-width: 768px) {
+    .profile-close-btn {
+        right: 1rem !important;
+        top: calc(env(safe-area-inset-top, 0px) + 1rem) !important;
+        background: rgba(0, 0, 0, 0.3) !important;
+    }
+    .profile-header-new {
+        padding-top: calc(env(safe-area-inset-top, 0px) + 2.5rem) !important;
+    }
+    #toastContainer {
+        top: calc(env(safe-area-inset-top, 0px) + 1rem) !important;
+        right: 1rem !important;
+        left: 1rem !important;
+    }
+    .toast-new {
+        min-width: unset;
+        width: 100%;
+    }
+}

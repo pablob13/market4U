@@ -4,7 +4,7 @@
   "description": "Comparador de precios de supermercados en México",
   "private": true,
   "scripts": {
-    "build": "rm -rf www && mkdir -p www && cp index.html app.js services.js config.js mockData.js styles.css sw.js manifest.json privacidad.html terminos.html www/"
+    "build": "rm -rf www && mkdir -p www && cp index.html app.js services.js config.js mockData.js styles.css sw.js manifest.json privacidad.html terminos.html www/ && cp -r icons www/"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",

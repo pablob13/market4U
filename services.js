@@ -208,7 +208,7 @@ const AuthService = {
 
     onAuthChange: (callback) => {
         if (!_sb) return;
-        _sb.auth.onAuthStateChange((_event, session) => callback(session));
+        _sb.auth.onAuthStateChange((event, session) => callback(event, session));
     }
 };
 

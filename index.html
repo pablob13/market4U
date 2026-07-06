@@ -6,6 +6,7 @@
     <title>Market4U - Comparador de Supermercados</title>
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/webp" href="icons/icon-48.webp">
     <meta name="theme-color" content="#22c55e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -308,28 +309,32 @@
 
     <!-- Modal Perfil Lateral -->
     <div id="profileModal" class="modal-overlay">
-        <div class="side-modal">
-            <button class="modal-close" id="closeProfileModal" style="right: auto; left: -3rem; color: white;">
+        <div class="side-modal profile-side-modal">
+            <button class="profile-close-btn" id="closeProfileModal" aria-label="Cerrar modal">
                 <i data-lucide="x"></i>
             </button>
             
-            <div class="cart-header" style="background-color: var(--bg-secondary); text-align: center; padding: 3rem 2rem 2rem;">
-                <div style="width: 80px; height: 80px; background-color: var(--bg-tertiary); border-radius: 50%; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; border: 2px solid var(--border-color);">
-                    <i data-lucide="user" style="color: var(--text-secondary); width: 32px; height: 32px;"></i>
+            <div class="profile-header-new">
+                <div class="profile-avatar-container">
+                    <i data-lucide="user"></i>
                 </div>
                 <h2 id="profileNameDisplay">Mi Perfil</h2>
-                <button id="logoutBtn" style="background: none; border: none; color: var(--text-tertiary); font-size: 0.8rem; cursor: pointer; text-decoration: underline; margin-top: 0.5rem;">Cerrar Sesión</button>
+                <button id="logoutBtn">
+                    <i data-lucide="log-out"></i> Cerrar Sesión
+                </button>
             </div>
             
-            <div class="profile-tabs">
-                <button class="tab-btn active" data-tab="listas"><i data-lucide="list-checks"></i> Listas</button>
-                <button class="tab-btn" data-tab="favoritos"><i data-lucide="heart"></i> Favoritos</button>
-                <button class="tab-btn" data-tab="alertas"><i data-lucide="bell"></i> Alertas</button>
-                <button class="tab-btn" data-tab="direcciones"><i data-lucide="map-pin"></i> Direcciones</button>
-                <button class="tab-btn" data-tab="ahorros"><i data-lucide="piggy-bank"></i> Ahorros</button>
+            <div class="profile-tabs-scroll">
+                <div class="profile-tabs">
+                    <button class="tab-btn active" data-tab="listas"><i data-lucide="list-checks"></i> Listas</button>
+                    <button class="tab-btn" data-tab="favoritos"><i data-lucide="heart"></i> Favoritos</button>
+                    <button class="tab-btn" data-tab="alertas"><i data-lucide="bell"></i> Alertas</button>
+                    <button class="tab-btn" data-tab="direcciones"><i data-lucide="map-pin"></i> Direcciones</button>
+                    <button class="tab-btn" data-tab="ahorros"><i data-lucide="piggy-bank"></i> Ahorros</button>
+                </div>
             </div>
             
-            <div class="cart-items" id="profileContentArea" style="background-color: var(--bg-primary);">
+            <div class="profile-content-area-new" id="profileContentArea">
                 <!-- Profile active tab content -->
             </div>
         </div>

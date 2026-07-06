@@ -1570,21 +1570,14 @@ document.addEventListener('click', (e) => {
 /* --- TOAST SYSTEM --- */
 window.showToast = (message, type = 'success', duration = 3500) => {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
     const icons = { success: 'check-circle', error: 'x-circle', info: 'info', warning: 'alert-triangle' };
     const colors = { success: '#10b981', error: '#ef4444', info: '#3b82f6', warning: '#f59e0b' };
     
     const toast = document.createElement('div');
-    toast.style.cssText = `
-        display: flex; align-items: center; gap: 0.75rem;
-        background: var(--bg-primary); color: var(--text-primary);
-        padding: 0.85rem 1.25rem; border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid var(--border-color);
-        border-left: 4px solid ${colors[type]};
-        font-size: 0.9rem; font-weight: 500; min-width: 280px; max-width: 360px;
-        pointer-events: all; cursor: pointer;
-        animation: slideInRight 0.3s ease; transition: all 0.3s ease;
-        font-family: inherit;
-    `;
+    toast.className = 'toast-new';
+    toast.style.setProperty('--toast-color', colors[type]);
+    
     toast.innerHTML = `<i data-lucide="${icons[type]}" style="width:20px; height:20px; color:${colors[type]}; flex-shrink:0;"></i><span>${message}</span>`;
     toast.addEventListener('click', () => toast.remove());
     container.appendChild(toast);
@@ -1592,7 +1585,7 @@ window.showToast = (message, type = 'success', duration = 3500) => {
     
     setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
+        toast.style.transform = 'translateX(30px) scale(0.9)';
         setTimeout(() => toast.remove(), 300);
     }, duration);
 };
@@ -1805,19 +1798,7 @@ document.getElementById('signinBtn').addEventListener('click', async () => {
             if (msg.includes('Email not confirmed')) msg = 'Por favor revisa tu bandeja de entrada y confirma tu correo para poder entrar.';
             return showAuthError('signinError', msg);
         }
-        const session = data?.session;
-        if (session) {
-            user = { 
-                id: session.user.id,
-                email: session.user.email,
-                name: session.user.user_metadata?.name || session.user.email.split('@')[0]
-            };
-            saveState();
-            loginModal.classList.remove('active');
-            renderUserNav();
-            showToast(`¡Bienvenido, ${user.name}!`, 'success');
-            await syncListsFromSupabase();
-        }
+        // El estado y la bienvenida son manejados centralizadamente por onAuthChange
     } else {
         // Fallback demo cuando Supabase no está disponible
         setAuthLoading('signinBtn', 'signinBtnText', 'signinBtnSpinner', false);
@@ -1853,16 +1834,6 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
         if (data?.user && !data?.session) {
             loginModal.classList.remove('active');
             showToast('¡Verifica tu cuenta! Te hemos enviado un correo de confirmación.', 'success', 8000);
-        } else if (data?.session) {
-            user = {
-                id: data.session.user.id,
-                email: data.session.user.email,
-                name
-            };
-            saveState();
-            loginModal.classList.remove('active');
-            renderUserNav();
-            showToast(`¡Bienvenido a Market4U, ${name}!`, 'success');
         }
     } else {
         setAuthLoading('signupBtn', 'signupBtnText', 'signupBtnSpinner', false);
@@ -2991,7 +2962,7 @@ renderNotifications();
     }
 
     // 1. Escuchar cambios ANTES de cualquier `await` para evitar perder el evento INITIAL_SESSION
-    AuthService.onAuthChange(async (session) => {
+    AuthService.onAuthChange(async (event, session) => {
         if (session?.user) {
             user = {
                 id: session.user.id,
@@ -3001,9 +2972,14 @@ renderNotifications();
             saveState();
             renderUserNav();
             loginModal.classList.remove('active');
-            let welcomeName = user.name;
-            if (welcomeName === 'pablobesoytrigueros') welcomeName = 'Pablo';
-            showToast(`¡Bienvenido, ${welcomeName}!`, 'success');
+            
+            // Mostrar bienvenida solo cuando se inicia sesión activamente (evita duplicados y en reload)
+            if (event === 'SIGNED_IN') {
+                let welcomeName = user.name;
+                if (welcomeName === 'pablobesoytrigueros') welcomeName = 'Pablo';
+                showToast(`¡Bienvenido, ${welcomeName}!`, 'success');
+            }
+            
             await syncCityFromProfile(session.user.id);
             await syncListsFromSupabase();
         } else if (user) {

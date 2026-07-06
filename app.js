@@ -556,6 +556,14 @@ document.getElementById('homeNavBtn').addEventListener('click', (e) => {
     window.scrollTo({top: 0, behavior: 'smooth'});
 });
 
+// Hogar & Electrónicos Nav Buttons (En Desarrollo)
+const handleInDevelopmentNav = (e, sectionName) => {
+    e.preventDefault();
+    showToast(`La sección de ${sectionName} está en desarrollo`, 'info');
+};
+document.getElementById('hogarNavBtn').addEventListener('click', (e) => handleInDevelopmentNav(e, 'Hogar'));
+document.getElementById('electronicosNavBtn').addEventListener('click', (e) => handleInDevelopmentNav(e, 'Electrónicos'));
+
 const renderProfileTab = () => {
     profileContentArea.innerHTML = '';
     

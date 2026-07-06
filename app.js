@@ -1438,7 +1438,7 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
     if (itemsContainer) {
         itemsContainer.innerHTML = itemsToExport.map(item => `
             <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary);">
-                <img src="${item.product.image}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                <img src="${item.product.image || 'https://via.placeholder.com/150'}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyUyMzIyYzU1ZScgc3Ryb2tlLXdpZHRoPScyJyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzknIGN5PScyMScgcj0nMScvPjxjaXJjbGUgY3g9JzIwJyBjeT0nMjEnIHI9JzEnLz48cGF0aCBkPSdNMSAxaDRsMi42OCAxMy4zOWEyIDIgMCAwIDAgMiAxLjYxaDkuNzJhMiAyIDAgMCAwIDItMS42MUwyMyA2SDYnLz48L3N2Zz4=';">
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); text-align: left;">${item.product.title}</div>
                     <div style="font-size: 0.75rem; color: var(--text-secondary); text-align: left;">${item.quantity} un. x ${formatCurrency(item.offer.price)}</div>
@@ -1487,12 +1487,13 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
                 autoBtn.style.display = 'flex';
                 autoBtn.style.pointerEvents = "auto";
             } else {
-                autoBtn.innerText = "No se encontraron productos válidos para esta tienda";
-                autoBtn.href = "#";
-                autoBtn.onclick = (e) => e.preventDefault();
+                autoBtn.innerText = `Ir a la tienda de ${store.name}`;
+                autoBtn.href = `https://${domain}`;
+                autoBtn.onclick = null;
                 autoBtn.style.display = 'flex';
-                autoBtn.style.pointerEvents = "none";
-                autoBtn.style.backgroundColor = "var(--text-secondary)";
+                autoBtn.style.pointerEvents = "auto";
+                autoBtn.style.backgroundColor = "var(--accent-color)";
+                autoBtn.style.color = "white";
             }
         } else if (storeKey === 'soriana' || storeKey === 'justo' || storeKey === 'fresko' || storeKey === 'lacomer' || storeKey === 'citymarket') {
             // Trigger Extensión Chrome

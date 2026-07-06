@@ -350,7 +350,16 @@ const processProducts = (productList) => {
             const totalB = (b.price ?? Infinity) + (b.shipping ?? 0);
             return totalA - totalB;
         });
-        const bestOffer = sortedOffers[0];
+        let bestOffer = sortedOffers[0];
+        if (!bestOffer) {
+            bestOffer = {
+                price: item.price || 0,
+                list_price: item.list_price || item.price || 0,
+                store: item.source || 'desconocido',
+                shipping: 0
+            };
+            sortedOffers.push(bestOffer);
+        }
         return { ...item, bestOffer, sortedOffers };
     });
 };
@@ -1314,8 +1323,9 @@ window.openProductModal = async (id, tab = 'stores', selectedStore = null) => {
             }
         }
 
-            const hasPromoModal = product.bestOffer.list_price && product.bestOffer.list_price > product.bestOffer.price;
-            const discountPctModal = hasPromoModal ? Math.round((1 - product.bestOffer.price / product.bestOffer.list_price) * 100) : 0;
+            const bestOffer = product.bestOffer || { price: 0, list_price: 0, store: 'desconocido' };
+            const hasPromoModal = bestOffer.list_price && bestOffer.list_price > bestOffer.price;
+            const discountPctModal = hasPromoModal ? Math.round((1 - bestOffer.price / bestOffer.list_price) * 100) : 0;
 
         pdpContentBody.innerHTML = `
             <div class="pdp-container">

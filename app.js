@@ -1530,20 +1530,21 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
             const validItems = [];
             
             itemsToExport.forEach(i => {
-                const url = i.offer?.url || '';
-                // 1. Intentar buscar ?sku= o &sku= en la URL
-                const skuMatch = url.match(/[?&]sku=([^&#]+)/);
-                let sku = skuMatch ? skuMatch[1] : null;
+                // 1. Prioridad máxima: El SKU directo de la oferta o producto
+                let sku = i.offer?.sku_id || i.product?.sku_id;
                 
-                // 2. Si no se encuentra, intentar extraer el id numérico antes de /p (ej: -3624565/p)
+                // 2. Si no se encuentra, intentar buscar ?sku= o &sku= en la URL
                 if (!sku) {
-                    const idMatch = url.match(/-([0-9]+)\/p/);
-                    if (idMatch) sku = idMatch[1];
+                    const url = i.offer?.url || '';
+                    const skuMatch = url.match(/[?&]sku=([^&#]+)/);
+                    if (skuMatch) sku = skuMatch[1];
                 }
                 
-                // 3. Fallbacks del objeto de oferta/producto
+                // 3. Si no se encuentra, intentar extraer el id numérico de /p (ej: -3102854/p) como último recurso
                 if (!sku) {
-                    sku = i.offer?.sku_id || i.product?.sku_id;
+                    const url = i.offer?.url || i.product?.permalink || '';
+                    const idMatch = url.match(/-([0-9]+)\/p/);
+                    if (idMatch) sku = idMatch[1];
                 }
                 
                 // 4. Validar que sea un número de SKU válido para VTEX

@@ -101,7 +101,8 @@ const ProductAdapter = {
             title: frontendProduct.title,
             category: frontendProduct.category_id || frontendProduct.category || 'General',
             image_url: frontendProduct.thumbnail || frontendProduct.image || null,
-            brand: frontendProduct.brand || ''
+            brand: frontendProduct.brand || '',
+            barcode: frontendProduct.barcode || null
         };
     }
 };
@@ -688,6 +689,7 @@ const ProductsService = {
                     category:  mlProduct.category || 'General',
                     image_url: mlProduct.image,
                     brand:     mlProduct.brand || null,
+                    barcode:   mlProduct.barcode || null,
                 }, { onConflict: 'ml_id' })
                 .select('id')
                 .single();

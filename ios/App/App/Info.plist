@@ -51,5 +51,7 @@
 	<string>Market4U requiere acceso a la cámara para escanear los códigos de barras de los productos físicos y comparar sus precios.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Market4U requiere acceso a tu galería para poder seleccionar fotos de tickets de compra y procesarlos con OCR.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

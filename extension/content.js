@@ -359,7 +359,146 @@ else {
         // --- LÓGICA JÜSTO ---
         else if (store === 'justo' && window.location.hostname.includes('justo.mx')) {
             console.log("Iniciando inyección en Jüsto...", items);
-            // TODO: Mañana - Implementar lógica GraphQL checkoutLinesAdd
+            
+            const workBanner = document.createElement('div');
+            workBanner.innerHTML = `
+                <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #007a4c; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
+                    🪄 <strong>Market4U:</strong> Preparando tu carrito en JÜSTO...
+                </div>
+            `;
+            document.body.appendChild(workBanner);
+
+            let checkoutId = '';
+            try {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.toLowerCase().includes('checkout') || key.toLowerCase().includes('cart') || key.includes('state'))) {
+                        const val = localStorage.getItem(key);
+                        if (val) {
+                            if (val.includes('Checkout:') || val.includes('Q2hlY2tvdXQ6')) {
+                                checkoutId = val;
+                                break;
+                            }
+                            try {
+                                const parsed = JSON.parse(val);
+                                if (parsed.id) { checkoutId = parsed.id; break; }
+                                if (parsed.checkoutId) { checkoutId = parsed.checkoutId; break; }
+                                if (parsed.checkout && parsed.checkout.id) { checkoutId = parsed.checkout.id; break; }
+                            } catch(e) {}
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error("Error buscando checkoutId", e);
+            }
+
+            if (!checkoutId) {
+                document.cookie.split(';').forEach(c => {
+                    try {
+                        const parts = c.split('=');
+                        const name = parts[0].trim();
+                        const val = decodeURIComponent(parts[1] || '').trim();
+                        if (name.includes('checkout') && (val.includes('Checkout:') || val.includes('Q2hlY2tvdXQ6'))) {
+                            checkoutId = val;
+                        }
+                    } catch(e) {}
+                });
+            }
+
+            console.log("Checkout ID encontrado:", checkoutId);
+
+            if (!checkoutId) {
+                workBanner.innerHTML = `
+                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #E41D2C; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px; box-shadow: 0 -4px 6px rgba(0,0,0,0.2);">
+                        ⚠️ <strong>Market4U:</strong> Agrega al menos un artículo manualmente en Jüsto para iniciar tu sesión de carrito, luego reintenta.
+                    </div>
+                `;
+                return;
+            }
+
+            const runGraphQL = async (query, variables = {}) => {
+                const res = await fetch('https://api.justo.mx/graphql/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, variables })
+                });
+                return res.json();
+            };
+
+            (async () => {
+                let addedCount = 0;
+                const lines = [];
+
+                for (const item of items) {
+                    try {
+                        let productId = item.product.id;
+                        if (productId.startsWith('jus_')) {
+                            productId = productId.substring(4);
+                        }
+                        
+                        while (productId.length % 4 !== 0) {
+                            productId += '=';
+                        }
+
+                        console.log(`Buscando variantes para producto: ${item.product.title} (ID: ${productId})`);
+                        
+                        const getVarQuery = `
+                            query getProductVariants($id: ID!) {
+                                product(id: $id) {
+                                    variants {
+                                        id
+                                    }
+                                }
+                            }
+                        `;
+                        const varData = await runGraphQL(getVarQuery, { id: productId });
+                        const variants = varData?.data?.product?.variants || [];
+                        if (variants.length === 0) {
+                            console.error(`No se encontraron variantes para: ${item.product.title}`);
+                            continue;
+                        }
+
+                        const variantId = variants[0].id;
+                        lines.push({
+                            variantId: variantId,
+                            quantity: parseInt(item.quantity) || 1
+                        });
+                        console.log(`Variante encontrada: ${variantId} para ${item.product.title}`);
+                        addedCount++;
+                    } catch (err) {
+                        console.error(`Error procesando artículo ${item.product.title}:`, err);
+                    }
+                }
+
+                if (lines.length > 0) {
+                    console.log("Agregando variantes al checkout...", lines);
+                    const addLinesMutation = `
+                        mutation checkoutLinesAdd($checkoutId: ID!, $lines: [CheckoutLineInput!]!) {
+                            checkoutLinesAdd(checkoutId: $checkoutId, lines: $lines) {
+                                checkout {
+                                    id
+                                }
+                                errors {
+                                    message
+                                }
+                            }
+                        }
+                    `;
+                    const mutationRes = await runGraphQL(addLinesMutation, { checkoutId, lines });
+                    console.log("Respuesta de checkoutLinesAdd:", mutationRes);
+                }
+
+                chrome.storage.local.remove(['pendingCart'], () => {
+                    workBanner.innerHTML = `
+                        <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #007a4c; color: white; padding: 15px; text-align: center; z-index: 99999999; font-family: sans-serif; font-size: 16px;">
+                            ✅ <strong>¡Éxito!</strong> Se inyectaron ${addedCount} productos a tu carrito de Jüsto. Recargando página...
+                        </div>
+                    `;
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                });
+            })();
         }
     });
 }

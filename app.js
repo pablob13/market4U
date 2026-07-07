@@ -1533,18 +1533,28 @@ window.startRedirect = (storeKey, isCart, singleProductId = null) => {
                 // 1. Prioridad máxima: El SKU directo de la oferta o producto
                 let sku = i.offer?.sku_id || i.product?.sku_id;
                 
-                // 2. Si no se encuentra, intentar buscar ?sku= o &sku= en la URL
-                if (!sku) {
-                    const url = i.offer?.url || '';
-                    const skuMatch = url.match(/[?&]sku=([^&#]+)/);
-                    if (skuMatch) sku = skuMatch[1];
-                }
-                
-                // 3. Si no se encuentra, intentar extraer el id numérico de /p (ej: -3102854/p) como último recurso
+                // 2. Si no se encuentra, intentar extraer de la URL de forma robusta
                 if (!sku) {
                     const url = i.offer?.url || i.product?.permalink || '';
-                    const idMatch = url.match(/-([0-9]+)\/p/);
-                    if (idMatch) sku = idMatch[1];
+                    if (url) {
+                        // 2a. ?sku=3407892
+                        const skuMatch = url.match(/[?&]sku=([^&#]+)/);
+                        if (skuMatch) {
+                            sku = skuMatch[1];
+                        } else {
+                            // 2b. /p/...-3001968-3001968
+                            const doubleIdMatch = url.match(/-([0-9]+)-([0-9]+)(?:[?#&]|$)/);
+                            if (doubleIdMatch) {
+                                sku = doubleIdMatch[2];
+                            } else {
+                                // 2c. /p/...-3102854/p or ending in -3407892
+                                const lastIdMatch = url.match(/-([0-9]+)(?:\/p|[?#&]|$)/);
+                                if (lastIdMatch) {
+                                    sku = lastIdMatch[1];
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 // 4. Validar que sea un número de SKU válido para VTEX

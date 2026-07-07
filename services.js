@@ -176,14 +176,7 @@ const ListAdapter = {
                 return {
                     product_id: li.product_id,
                     quantity: li.quantity,
-                    product: {
-                        id: li.products.id,
-                        ml_id: li.products.ml_id,
-                        title: li.products.title,
-                        thumbnail: li.products.image_url || 'https://via.placeholder.com/150',
-                        brand: li.products.brand || '',
-                        category: li.products.category || ''
-                    }
+                    product: ProductAdapter.toFrontend(li.products)
                 };
             }).filter(Boolean)
         };
@@ -656,7 +649,6 @@ const ListsService = {
         if (!_sb || !userId) return null;
         
         try {
-            // Obtener listas y realizar el join relacional con list_items y products en una sola consulta
             const { data, error } = await _sb
                 .from('saved_lists')
                 .select(`
@@ -672,7 +664,14 @@ const ListsService = {
                             title,
                             image_url,
                             brand,
-                            category
+                            category,
+                            price_history (
+                                store_id,
+                                price,
+                                shipping,
+                                source_url,
+                                scraped_at
+                            )
                         )
                     )
                 `)

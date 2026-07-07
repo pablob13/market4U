@@ -181,12 +181,36 @@ const loadState = () => {
             alerts = data.alerts || [];
             addresses = data.addresses || [];
             
+            // Sincronizar productos guardados a allData para no perder información
+            if (data.cart) {
+                data.cart.forEach(c => {
+                    if (c && c.product && c.product.id) {
+                        const exists = allData.some(p => p && (p.id === c.product.id || p.ml_id === c.product.id || (c.product.ml_id && (p.id === c.product.ml_id || p.ml_id === c.product.ml_id))));
+                        if (!exists) allData.push(c.product);
+                    }
+                });
+            }
+            if (data.savedLists) {
+                data.savedLists.forEach(list => {
+                    if (list && list.items) {
+                        list.items.forEach(i => {
+                            if (i && i.product && i.product.id) {
+                                const exists = allData.some(p => p && (p.id === i.product.id || p.ml_id === i.product.id || (i.product.ml_id && (p.id === i.product.ml_id || p.ml_id === i.product.ml_id))));
+                                if (!exists) allData.push(i.product);
+                            }
+                        });
+                    }
+                });
+            }
+            // Reprocesar allData para asegurar que bestOffer y sortedOffers estén recalculados
+            allData = processProducts(allData);
+            
             cart = (data.cart || []).map(c => {
                 if(c && c.product && c.product.id) {
-                    const fp = allData.find(x => x.id === c.product.id);
-                    return fp ? { product: fp, quantity: c.quantity || 1 } : null;
+                    const fp = allData.find(x => x && (x.id === c.product.id || x.ml_id === c.product.id || (c.product.ml_id && (x.id === c.product.ml_id || x.ml_id === c.product.ml_id))));
+                    return fp ? { product: fp, quantity: c.quantity || 1 } : { product: c.product, quantity: c.quantity || 1 };
                 } else if(c && c.id) {
-                    const fp = allData.find(x => x.id === c.id);
+                    const fp = allData.find(x => x && x.id === c.id);
                     return fp ? { product: fp, quantity: 1 } : null;
                 }
                 return null;
@@ -195,8 +219,14 @@ const loadState = () => {
             savedLists = (data.savedLists || []).map(list => {
                 if(!list || !list.items) return null;
                 const fItems = list.items.map(i => {
-                    if(i && i.product && i.product.id) return { product: allData.find(x => x.id === i.product.id), quantity: i.quantity || 1 };
-                    else if(i && i.id) return { product: allData.find(x => x.id === i.id), quantity: 1 };
+                    if(i && i.product && i.product.id) {
+                        const fp = allData.find(x => x && (x.id === i.product.id || x.ml_id === i.product.id || (i.product.ml_id && (x.id === i.product.ml_id || x.ml_id === i.product.ml_id))));
+                        return { product: fp || i.product, quantity: i.quantity || 1 };
+                    }
+                    else if(i && i.id) {
+                        const fp = allData.find(x => x && x.id === i.id);
+                        if (fp) return { product: fp, quantity: 1 };
+                    }
                     return null;
                 }).filter(x => x && x.product);
                 return { name: list.name || 'Sin Nombre', items: fItems };
@@ -1010,27 +1040,35 @@ const syncListsFromSupabase = async () => {
     if (!user?.id || !ListsService) return;
     const { data, error } = await ListsService.getAll(user.id);
     if (error || !data) return;
+
+    // Primero, agregar productos de las listas remotas a allData si no existen
+    let allDataUpdated = false;
+    data.forEach(row => {
+        (row.items || []).forEach(i => {
+            if (i && i.product && i.product.id) {
+                const exists = allData.some(p => p && (p.id === i.product.id || p.ml_id === i.product.id || (i.product.ml_id && (p.id === i.product.ml_id || p.ml_id === i.product.ml_id))));
+                if (!exists) {
+                    allData.push(i.product);
+                    allDataUpdated = true;
+                }
+            }
+        });
+    });
+
+    if (allDataUpdated) {
+        allData = processProducts(allData);
+    }
+
     const remoteLists = data.map(row => ({
         id: row.id,
         name: row.name,
         items: (row.items || []).map(i => {
             if (!i.product) return null;
             // Buscar por el ml_id o el id canónico del producto en allData
-            let product = allData.find(p => p.id === i.product.ml_id || p.ml_id === i.product.ml_id || p.id === i.product.id);
+            let product = allData.find(p => p && (p.id === i.product.id || p.ml_id === i.product.id || (i.product.ml_id && (p.id === i.product.ml_id || p.ml_id === i.product.ml_id))));
             if (!product) {
-                // Reconstruir un producto fallback para evitar descartarlo de la lista
-                product = {
-                    id: i.product.ml_id || i.product.id,
-                    ml_id: i.product.ml_id,
-                    title: i.product.title,
-                    image: i.product.thumbnail || 'https://via.placeholder.com/150',
-                    thumbnail: i.product.thumbnail || 'https://via.placeholder.com/150',
-                    brand: i.product.brand || '',
-                    category: i.product.category || 'Supermercado',
-                    bestOffer: { price: 0, store: 'desconocido' },
-                    sortedOffers: [],
-                    offers: []
-                };
+                // Si por alguna razón no está en allData, usar el i.product con procesamiento de ofertas local
+                product = processProducts([i.product])[0];
             }
             return { product, quantity: i.quantity || 1 };
         }).filter(Boolean)
